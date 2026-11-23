@@ -91,7 +91,7 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     if (error || !created.user) {
       await supabaseAdmin.from("invitations").update({ accepted_at: null }).eq("id", inv.id);
       throw new Error(
-        error?.message?.includes("already") ? "Ya existe una cuenta con ese email. Iniciá sesión." : "No se pudo crear la cuenta.",
+        error?.message?.includes("already") ? "Ya existe una cuenta con ese email. Iniciá sesión." : error?.message?.includes("weak") ? "Esa contraseña es demasiado común o filtrada. Elegí otra." : "No se pudo crear la cuenta.",
       );
     }
     const userId = created.user.id;
