@@ -1,5 +1,6 @@
 import { ProjectList } from "@/components/crm/projects-ui";
 import { BrainToggle } from "@/components/crm/BrainPanel";
+import { ResearchPanel } from "@/components/crm/ResearchPanel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -82,6 +83,7 @@ function OrgDetail() {
             </ul>
           </section>
           <BrainToggle ws={o.workspace_id} focusType="organization" focusId={id} />
+          <ResearchPanel ws={o.workspace_id} orgId={id} />
           <ProjectList ws={o.workspace_id} orgId={id} />
           <IntroList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ target_org_id: id }} emptyText="Ninguna introducción apunta a esta organización." />
           <TaskList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ organization_id: id }} />

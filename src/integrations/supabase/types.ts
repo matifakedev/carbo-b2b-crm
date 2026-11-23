@@ -33,6 +33,7 @@ export type Database = {
           created_by: string | null
           end_date: string | null
           id: string
+          import_batch_id: string | null
           is_current: boolean | null
           notes: string | null
           organization_id: string
@@ -53,6 +54,7 @@ export type Database = {
           created_by?: string | null
           end_date?: string | null
           id?: string
+          import_batch_id?: string | null
           is_current?: boolean | null
           notes?: string | null
           organization_id: string
@@ -73,6 +75,7 @@ export type Database = {
           created_by?: string | null
           end_date?: string | null
           id?: string
+          import_batch_id?: string | null
           is_current?: boolean | null
           notes?: string | null
           organization_id?: string
@@ -88,6 +91,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "affiliations_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "affiliations_organization_id_fkey"
             columns: ["organization_id"]
@@ -302,6 +312,74 @@ export type Database = {
           },
         ]
       }
+      carbo_capabilities: {
+        Row: {
+          applications: string | null
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          communicable: string | null
+          created_at: string
+          created_by: string | null
+          evidence: string | null
+          id: string
+          is_commercial_sensitive: boolean
+          limits: string | null
+          references_text: string | null
+          status: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          applications?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          communicable?: string | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: string | null
+          id?: string
+          is_commercial_sensitive?: boolean
+          limits?: string | null
+          references_text?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          applications?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          communicable?: string | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: string | null
+          id?: string
+          is_commercial_sensitive?: boolean
+          limits?: string | null
+          references_text?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carbo_capabilities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_interest: {
         Row: {
           conditions: string | null
@@ -504,6 +582,142 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          created_at: string
+          created_by: string | null
+          file_hash: string
+          file_name: string
+          id: string
+          revert_summary: Json | null
+          reverted_at: string | null
+          reverted_by: string | null
+          status: string
+          summary: Json | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_hash: string
+          file_name: string
+          id?: string
+          revert_summary?: Json | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          status?: string
+          summary?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_hash?: string
+          file_name?: string
+          id?: string
+          revert_summary?: Json | null
+          reverted_at?: string | null
+          reverted_by?: string | null
+          status?: string
+          summary?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          created_by: string | null
+          decision: string
+          id: string
+          organization_id: string | null
+          person_id: string | null
+          raw: Json
+          row_number: number
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          created_by?: string | null
+          decision: string
+          id?: string
+          organization_id?: string | null
+          person_id?: string | null
+          raw: Json
+          row_number: number
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          created_by?: string | null
+          decision?: string
+          id?: string
+          organization_id?: string | null
+          person_id?: string | null
+          raw?: Json
+          row_number?: number
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       introductions: {
         Row: {
           archived_at: string | null
@@ -661,6 +875,143 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invitations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_participants: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          import_batch_id: string | null
+          meeting_id: string
+          person_id: string
+          role_note: string | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          import_batch_id?: string | null
+          meeting_id: string
+          person_id: string
+          role_note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          import_batch_id?: string | null
+          meeting_id?: string
+          person_id?: string
+          role_note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_participants_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_participants_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          archived_at: string | null
+          city: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          import_batch_id: string | null
+          meeting_date: string | null
+          notes: string | null
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          import_batch_id?: string | null
+          meeting_date?: string | null
+          notes?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          city?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          import_batch_id?: string | null
+          meeting_date?: string | null
+          notes?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meetings_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -903,6 +1254,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          import_batch_id: string | null
           location: string | null
           name: string
           normalized_name: string | null
@@ -921,6 +1273,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          import_batch_id?: string | null
           location?: string | null
           name: string
           normalized_name?: string | null
@@ -939,6 +1292,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          import_batch_id?: string | null
           location?: string | null
           name?: string
           normalized_name?: string | null
@@ -952,6 +1306,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "organizations_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "organizations_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -968,6 +1329,7 @@ export type Database = {
           created_by: string | null
           full_name: string
           id: string
+          import_batch_id: string | null
           location: string | null
           normalized_name: string | null
           notes: string | null
@@ -986,6 +1348,7 @@ export type Database = {
           created_by?: string | null
           full_name: string
           id?: string
+          import_batch_id?: string | null
           location?: string | null
           normalized_name?: string | null
           notes?: string | null
@@ -1004,6 +1367,7 @@ export type Database = {
           created_by?: string | null
           full_name?: string
           id?: string
+          import_batch_id?: string | null
           location?: string | null
           normalized_name?: string | null
           notes?: string | null
@@ -1018,6 +1382,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "people_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "people_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -1031,10 +1402,12 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_batch_id: string | null
           kind: Database["public"]["Enums"]["contact_kind"]
           label: string | null
           normalized_value: string | null
           person_id: string
+          source_detail: string | null
           updated_at: string
           updated_by: string | null
           value: string
@@ -1044,10 +1417,12 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           kind: Database["public"]["Enums"]["contact_kind"]
           label?: string | null
           normalized_value?: string | null
           person_id: string
+          source_detail?: string | null
           updated_at?: string
           updated_by?: string | null
           value: string
@@ -1057,16 +1432,25 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           kind?: Database["public"]["Enums"]["contact_kind"]
           label?: string | null
           normalized_value?: string | null
           person_id?: string
+          source_detail?: string | null
           updated_at?: string
           updated_by?: string | null
           value?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "person_contacts_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "person_contacts_person_id_fkey"
             columns: ["person_id"]
@@ -1377,6 +1761,170 @@ export type Database = {
           },
         ]
       }
+      research_findings: {
+        Row: {
+          category: string
+          condition: string
+          created_at: string
+          created_by: string | null
+          fetched_at: string
+          id: string
+          note: string | null
+          position: number
+          provided_by_user: boolean
+          published_at: string | null
+          quote: string | null
+          run_id: string
+          source_title: string | null
+          statement: string
+          updated_at: string
+          updated_by: string | null
+          url: string
+          workspace_id: string
+        }
+        Insert: {
+          category?: string
+          condition: string
+          created_at?: string
+          created_by?: string | null
+          fetched_at: string
+          id?: string
+          note?: string | null
+          position?: number
+          provided_by_user?: boolean
+          published_at?: string | null
+          quote?: string | null
+          run_id: string
+          source_title?: string | null
+          statement: string
+          updated_at?: string
+          updated_by?: string | null
+          url: string
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          condition?: string
+          created_at?: string
+          created_by?: string | null
+          fetched_at?: string
+          id?: string
+          note?: string | null
+          position?: number
+          provided_by_user?: boolean
+          published_at?: string | null
+          quote?: string | null
+          run_id?: string
+          source_title?: string | null
+          statement?: string
+          updated_at?: string
+          updated_by?: string | null
+          url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "research_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_findings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          extraction_id: string | null
+          fit: Json | null
+          focus: string | null
+          id: string
+          intro_draft: string | null
+          model: string | null
+          organization_id: string
+          query: string | null
+          search_error: string | null
+          source_document_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          extraction_id?: string | null
+          fit?: Json | null
+          focus?: string | null
+          id?: string
+          intro_draft?: string | null
+          model?: string | null
+          organization_id: string
+          query?: string | null
+          search_error?: string | null
+          source_document_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          extraction_id?: string | null
+          fit?: Json | null
+          focus?: string | null
+          id?: string
+          intro_draft?: string | null
+          model?: string | null
+          organization_id?: string
+          query?: string | null
+          search_error?: string | null
+          source_document_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_runs_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "brain_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_runs_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_documents: {
         Row: {
           archived_at: string | null
@@ -1385,6 +1933,7 @@ export type Database = {
           created_by: string | null
           id: string
           kind: string
+          organization_id: string | null
           original_text: string
           title: string
           updated_at: string
@@ -1398,6 +1947,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           kind?: string
+          organization_id?: string | null
           original_text: string
           title: string
           updated_at?: string
@@ -1411,6 +1961,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           kind?: string
+          organization_id?: string | null
           original_text?: string
           title?: string
           updated_at?: string
@@ -1423,6 +1974,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_documents_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -1646,6 +2204,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_import_batch: {
+        Args: { _file: string; _hash: string; _rows: Json; _ws: string }
+        Returns: Json
+      }
       confirm_extraction: {
         Args: { _decisions: Json; _extraction: string }
         Returns: Json
@@ -1688,6 +2250,7 @@ export type Database = {
       org_ws: { Args: { _id: string }; Returns: string }
       person_ws: { Args: { _id: string }; Returns: string }
       project_ws: { Args: { _id: string }; Returns: string }
+      revert_import_batch: { Args: { _batch: string }; Returns: Json }
       set_my_person: {
         Args: { _person: string; _ws: string }
         Returns: undefined

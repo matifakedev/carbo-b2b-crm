@@ -13,6 +13,8 @@ const nav = [
   { to: "/organizaciones", label: "Organizaciones" },
   { to: "/introducciones", label: "Introducciones" },
   { to: "/conversaciones", label: "Conversaciones" },
+  { to: "/capacidades", label: "Capacidades Carbo" },
+  { to: "/importar-agenda", label: "Importar agenda" },
   { to: "/equipo", label: "Equipo" },
 ] as const;
 

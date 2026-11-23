@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedCapacidadesRouteImport } from './routes/_authenticated/capacidades'
 import { Route as AuthenticatedEquipoRouteImport } from './routes/_authenticated/equipo'
+import { Route as AuthenticatedImportarAgendaRouteImport } from './routes/_authenticated/importar-agenda'
 import { Route as AuthenticatedIntroduccionesRouteImport } from './routes/_authenticated/introducciones'
 import { Route as AuthenticatedOportunidadesRouteImport } from './routes/_authenticated/oportunidades'
 import { Route as AuthenticatedRedRouteImport } from './routes/_authenticated/red'
@@ -49,11 +51,23 @@ const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   path: '/agenda',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCapacidadesRoute =
+  AuthenticatedCapacidadesRouteImport.update({
+    id: '/capacidades',
+    path: '/capacidades',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEquipoRoute = AuthenticatedEquipoRouteImport.update({
   id: '/equipo',
   path: '/equipo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImportarAgendaRoute =
+  AuthenticatedImportarAgendaRouteImport.update({
+    id: '/importar-agenda',
+    path: '/importar-agenda',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedIntroduccionesRoute =
   AuthenticatedIntroduccionesRouteImport.update({
     id: '/introducciones',
@@ -146,7 +160,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/capacidades': typeof AuthenticatedCapacidadesRoute
   '/equipo': typeof AuthenticatedEquipoRoute
+  '/importar-agenda': typeof AuthenticatedImportarAgendaRoute
   '/introducciones': typeof AuthenticatedIntroduccionesRoute
   '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
@@ -167,7 +183,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/agenda': typeof AuthenticatedAgendaRoute
+  '/capacidades': typeof AuthenticatedCapacidadesRoute
   '/equipo': typeof AuthenticatedEquipoRoute
+  '/importar-agenda': typeof AuthenticatedImportarAgendaRoute
   '/introducciones': typeof AuthenticatedIntroduccionesRoute
   '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
@@ -190,7 +208,9 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/capacidades': typeof AuthenticatedCapacidadesRoute
   '/_authenticated/equipo': typeof AuthenticatedEquipoRoute
+  '/_authenticated/importar-agenda': typeof AuthenticatedImportarAgendaRoute
   '/_authenticated/introducciones': typeof AuthenticatedIntroduccionesRoute
   '/_authenticated/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/_authenticated/red': typeof AuthenticatedRedRoute
@@ -213,7 +233,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/agenda'
+    | '/capacidades'
     | '/equipo'
+    | '/importar-agenda'
     | '/introducciones'
     | '/oportunidades'
     | '/red'
@@ -234,7 +256,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/agenda'
+    | '/capacidades'
     | '/equipo'
+    | '/importar-agenda'
     | '/introducciones'
     | '/oportunidades'
     | '/red'
@@ -256,7 +280,9 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/agenda'
+    | '/_authenticated/capacidades'
     | '/_authenticated/equipo'
+    | '/_authenticated/importar-agenda'
     | '/_authenticated/introducciones'
     | '/_authenticated/oportunidades'
     | '/_authenticated/red'
@@ -311,11 +337,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/capacidades': {
+      id: '/_authenticated/capacidades'
+      path: '/capacidades'
+      fullPath: '/capacidades'
+      preLoaderRoute: typeof AuthenticatedCapacidadesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/equipo': {
       id: '/_authenticated/equipo'
       path: '/equipo'
       fullPath: '/equipo'
       preLoaderRoute: typeof AuthenticatedEquipoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/importar-agenda': {
+      id: '/_authenticated/importar-agenda'
+      path: '/importar-agenda'
+      fullPath: '/importar-agenda'
+      preLoaderRoute: typeof AuthenticatedImportarAgendaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/introducciones': {
@@ -428,7 +468,9 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedCapacidadesRoute: typeof AuthenticatedCapacidadesRoute
   AuthenticatedEquipoRoute: typeof AuthenticatedEquipoRoute
+  AuthenticatedImportarAgendaRoute: typeof AuthenticatedImportarAgendaRoute
   AuthenticatedIntroduccionesRoute: typeof AuthenticatedIntroduccionesRoute
   AuthenticatedOportunidadesRoute: typeof AuthenticatedOportunidadesRoute
   AuthenticatedRedRoute: typeof AuthenticatedRedRoute
@@ -447,7 +489,9 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedCapacidadesRoute: AuthenticatedCapacidadesRoute,
   AuthenticatedEquipoRoute: AuthenticatedEquipoRoute,
+  AuthenticatedImportarAgendaRoute: AuthenticatedImportarAgendaRoute,
   AuthenticatedIntroduccionesRoute: AuthenticatedIntroduccionesRoute,
   AuthenticatedOportunidadesRoute: AuthenticatedOportunidadesRoute,
   AuthenticatedRedRoute: AuthenticatedRedRoute,

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +42,7 @@ function Agenda() {
   );
   return (
     <>
-      <PageHeader crumb={`Acciones / ${current?.name}`} title="Agenda" action={!adding && <Button onClick={() => setAdding(true)}>Nueva tarea</Button>} />
+      <PageHeader crumb={`Acciones / ${current?.name}`} title="Agenda" action={!adding && <div className="flex gap-2"><Button variant="outline" asChild><Link to="/importar-agenda">Importar agenda IVLP</Link></Button><Button onClick={() => setAdding(true)}>Nueva tarea</Button></div>} />
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <select aria-label="Responsable" className={`${selectClass} max-w-xs`} value={owner} onChange={(e) => setOwner(e.target.value)}>
           <option value="">Todos los responsables</option>
@@ -58,6 +58,30 @@ function Agenda() {
         {block("Próximas", g.upcoming, "Nada programado.")}
         {block("Sin fecha", g.undated, "Todo tiene fecha.")}
       </div>
+      <Meetings ws={ws} />
     </>
+  );
+}
+
+function Meetings({ ws }: { ws: string }) {
+  const { data = [] } = useQuery({
+    queryKey: ["meetings", ws],
+    queryFn: async () => (await supabase.from("meetings").select("id, title, meeting_date, city, source_detail, meeting_participants(id, archived_at, people(id, full_name))").eq("workspace_id", ws).is("archived_at", null).order("meeting_date", { nullsFirst: false })).data ?? [],
+  });
+  if (!data.length) return null;
+  return (
+    <div className="mt-6">
+      <Section title={`Reuniones de agenda (${data.length})`}>
+        <ul className="divide-y divide-border border-y border-border">
+          {data.map((m) => (
+            <li key={m.id} className="py-3">
+              <div className="font-semibold">{m.title}</div>
+              <div className="font-mono text-xs text-muted-foreground">{[m.meeting_date, m.city, m.source_detail].filter(Boolean).join(" · ")}</div>
+              <div className="mt-1 flex flex-wrap gap-2 text-sm">{m.meeting_participants.filter((p) => !p.archived_at && p.people).map((p) => <Link key={p.id} to="/personas/$id" params={{ id: p.people!.id }} className="text-primary hover:underline">{p.people!.full_name}</Link>)}</div>
+            </li>
+          ))}
+        </ul>
+      </Section>
+    </div>
   );
 }
