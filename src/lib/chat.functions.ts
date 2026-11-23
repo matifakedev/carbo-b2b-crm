@@ -224,9 +224,10 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       const { executeProspecting } = await import("@/lib/research.server");
       const r = await executeProspecting(sb, { workspace_id: c.ws, organization_id: String(a["organization_id"]), place: nn(a["place"]), commercial_profile: nn(a["commercial_profile"]),
         budget: { max_candidates: a["max_candidates"], max_queries: a["max_queries"], max_seconds: a["max_seconds"] } });
-      const view = { execution: r.execution, sufficiency: r.sufficiency, gaps: r.gaps, recommendation: r.recommendation, candidates: r.candidates, profile_origin: r.profile_origin, usage: r.usage, sources: r.sources };
-      c.research.push({ run_id: r.run_id, organization_id: String(a["organization_id"]), organization: r.organization, status: r.execution, errors: r.errors, proposals: r.proposals, prospect: view });
-      return { ...view, sources: undefined, proposals_pending_review: r.proposals, errors: r.errors };
+      const view = r.view;
+      if (r.errors.length) console.warn("prospect diagnostics", r.run_id, r.errors);
+      c.research.push({ run_id: r.run_id, organization_id: String(a["organization_id"]), organization: r.organization, status: r.execution, errors: [], proposals: r.proposals, prospect: view });
+      return { ...view, sources: undefined, sources_count: view.sources.length, proposals_pending_review: r.proposals, note: "El mensaje final al usuario se genera desde este mismo resultado; no lo reescribas." };
     }
     case "ask_user": {
       c.question = { question: String(a["question"] ?? ""), options: ((a["options"] as string[]) ?? []).slice(0, 6) };
@@ -303,6 +304,8 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
       }
     }
     if (failure) text = `${failure}${text ? `\n\n${text}` : ""}`;
+    const pr = c.research.find((x) => x.prospect);
+    if (pr?.prospect) { const { prospectMessage } = await import("@/lib/prospecting"); text = `${failure ? `${failure}\n\n` : ""}${prospectMessage(pr.organization, pr.prospect)}`; }
     if (!text) text = c.actions.length ? "Listo." : "No pude generar una respuesta.";
     const parts = { actions: c.actions, question: c.question, error: failure, research: c.research };
     const { error: e2 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "assistant", content: text, parts });

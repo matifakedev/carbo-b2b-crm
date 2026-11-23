@@ -9,7 +9,7 @@ const MODEL = "openai/gpt-6-astra" as const;
 const FC = "https://api.firecrawl.dev/v2";
 const MAX_SRC = 12000;
 
-async function llm(system: string, user: string, name: string, schema: unknown): Promise<{ ok: true; json: unknown } | { ok: false; message: string }> {
+async function llm(system: string, user: string, name: string, schema: unknown): Promise<{ ok: true; json: unknown } | { ok: false; message: string; rateLimited?: boolean }> {
   if (!process.env["LOVABLE_API_KEY"]) return { ok: false, message: "El Brain no está configurado." };
   const { generateResponse } = await import("@lovable.dev/ai-gateway");
   try {
@@ -20,7 +20,8 @@ async function llm(system: string, user: string, name: string, schema: unknown):
     return { ok: true, json: JSON.parse(text) };
   } catch (e) {
     console.error("research llm error", e);
-    return { ok: false, message: "El proveedor de IA falló." };
+    const st = (e as { httpStatus?: number }).httpStatus;
+    return { ok: false, message: st === 429 ? "El proveedor de IA limitó temporalmente las consultas [429]." : "El proveedor de IA falló.", rateLimited: st === 429 };
   }
 }
 
@@ -30,16 +31,21 @@ const pubDate = (m: Meta) => {
   return typeof v === "string" && v.trim() ? v.trim() : Array.isArray(v) && typeof v[0] === "string" ? v[0] : null;
 };
 
-export async function fcSearch(key: string, query: string): Promise<Source[]> {
-  const r = await fetch(`${FC}/search`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ query, limit: 5, scrapeOptions: { formats: ["markdown"], onlyMainContent: true } }) });
+type RL = { remainingMs: () => number };
+const send = async (url: string, key: string, body: unknown, rl?: RL) => {
+  const go = () => fetch(url, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!rl) return go();
+  const { fetchWithRateLimit } = await import("@/lib/prospecting");
+  return fetchWithRateLimit(go, rl);
+};
+export async function fcSearch(key: string, query: string, rl?: RL): Promise<Source[]> {
+  const r = await send(`${FC}/search`, key, { query, limit: 5, scrapeOptions: { formats: ["markdown"], onlyMainContent: true } }, rl);
   if (!r.ok) { const t = await r.text(); throw new Error(`Búsqueda web falló [${r.status}]: ${t.slice(0, 300)}`); }
   const j = (await r.json()) as { data?: { web?: { url: string; title?: string; markdown?: string; metadata?: Meta }[] } };
   return (j.data?.web ?? []).filter((w) => w.markdown?.trim()).map((w) => ({ url: w.url, title: w.title ?? (w.metadata?.["title"] as string) ?? null, published_at: pubDate(w.metadata), markdown: w.markdown!.slice(0, MAX_SRC), provided_by_user: false }));
 }
-export async function fcScrape(key: string, url: string): Promise<Source> {
-  const r = await fetch(`${FC}/scrape`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }) });
+export async function fcScrape(key: string, url: string, rl?: RL): Promise<Source> {
+  const r = await send(`${FC}/scrape`, key, { url, formats: ["markdown"], onlyMainContent: true }, rl);
   if (!r.ok) { const t = await r.text(); throw new Error(`No se pudo leer ${url} [${r.status}]: ${t.slice(0, 200)}`); }
   const j = (await r.json()) as { data?: { markdown?: string; metadata?: Meta } };
   if (!j.data?.markdown?.trim()) throw new Error(`La página ${url} no tiene contenido legible.`);
@@ -146,16 +152,18 @@ export async function executeProspecting(sb: any, data: ProspectInput) {
   const { data: run, error } = await sb.from("research_runs").insert({ workspace_id: data.workspace_id, organization_id: org.id, focus: "Prospección por red institucional", query: P.NETWORK_QUERIES(org.name, place).join(" | "), model: MODEL }).select("id").single();
   if (error) throw new Error(error.message);
   const key = process.env["FIRECRAWL_API_KEY"];
-  const errors: string[] = []; const sources: Source[] = [];
+  const errors: string[] = []; const sources: Source[] = []; const issues: import("@/lib/prospecting").Issue[] = [];
   const addSources = (xs: Source[]) => { for (const x of xs) if (!sources.some((s) => s.url === x.url)) sources.push(x); };
-  let execution: import("@/lib/prospecting").ExecutionStatus = "completed";
+  const rl = { remainingMs: () => (budget.max_seconds - meter.elapsed()) * 1000 };
+  const fail = (e: unknown) => { const rate = e instanceof P.RateLimited; const d = rate ? (e as InstanceType<typeof P.RateLimited>).detail : (e as Error).message; errors.push(d); issues.push({ kind: rate ? "rate_limit" : "search_error", detail: d }); };
+  const llmFail = (r: { message: string; rateLimited?: boolean }) => { errors.push(r.message); issues.push({ kind: r.rateLimited ? "rate_limit" : "llm_error", detail: r.message }); };
   let candidates: import("@/lib/prospecting").Candidate[] = []; let recommendation = "";
 
-  if (!key) { execution = "search_unavailable"; errors.push("La búsqueda web no está configurada: no se consultó internet."); }
+  if (!key) { errors.push("La búsqueda web no está configurada: no se consultó internet."); }
   else {
     // Round 1: institution network sources
-    if (org.website && meter.take("scrape")) { try { addSources([await fcScrape(key, org.website)]); } catch (e) { errors.push((e as Error).message); } }
-    for (const q of P.NETWORK_QUERIES(org.name, place)) { if (!meter.take("query")) break; try { addSources(await fcSearch(key, q)); } catch (e) { errors.push((e as Error).message); } }
+    if (org.website && meter.take("scrape")) { try { addSources([await fcScrape(key, org.website, rl)]); } catch (e) { fail(e); } }
+    for (const q of P.NETWORK_QUERIES(org.name, place)) { if (!meter.take("query")) break; try { addSources(await fcSearch(key, q, rl)); } catch (e) { fail(e); } }
     const netCount = sources.length;
     // Round 2: candidate selection by commercial profile
     let picked: { company: string }[] = [];
@@ -163,10 +171,10 @@ export async function executeProspecting(sb: any, data: ProspectInput) {
       const block = sources.map((s, i) => `<fuente n="${i}" url="${s.url}">\n${s.markdown.slice(0, 6000)}\n</fuente>`).join("\n");
       const r = await llm(P.CANDIDATES_SYSTEM, `Institución: ${org.name}${place ? ` (${place})` : ""}\nPerfil comercial (${profile.origin}):\n${profile.text}\n\n${block}`, "candidates", P.CANDIDATES_SCHEMA);
       if (r.ok) picked = ((r.json as { candidates: { company: string; relevance: string }[] }).candidates ?? []).filter((c) => c.relevance === "high" || c.relevance === "medium").slice(0, 8);
-      else errors.push(r.message);
+      else llmFail(r);
     }
     // Round 3: research each candidate in its own sources
-    for (const c of picked) { if (!meter.take("query")) break; try { addSources((await fcSearch(key, P.candidateQuery(c.company, place))).slice(0, 2)); } catch (e) { errors.push((e as Error).message); } }
+    for (const c of picked) { if (!meter.take("query")) break; try { addSources((await fcSearch(key, P.candidateQuery(c.company, place), rl)).slice(0, 2)); } catch (e) { fail(e); } }
     // Round 4: prioritize up to N and prepare intro requests
     if (picked.length && meter.take("llm")) {
       const block = sources.map((s, i) => `<fuente n="${i}" url="${s.url}"${s.published_at ? ` publicada="${s.published_at}"` : ""}>\n${s.markdown.slice(0, 4000)}\n</fuente>`).join("\n");
@@ -175,13 +183,14 @@ export async function executeProspecting(sb: any, data: ProspectInput) {
         const j = r.json as { candidates: import("@/lib/prospecting").RawCandidate[]; recommendation: string };
         candidates = P.finalizeCandidates(j.candidates ?? [], sources, { hasApprovedCapabilities: approved.length > 0, max: budget.max_candidates });
         recommendation = softenClaims(j.recommendation ?? "");
-      } else errors.push(r.message);
+      } else llmFail(r);
     }
-    if (meter.exhausted.length) execution = "budget_exhausted";
-    else if (!sources.length) execution = "failed";
   }
+  const execution = P.deriveExecution({ searchConfigured: !!key, sources: sources.length, exhausted: meter.exhausted, issues });
   const { sufficiency, gaps } = P.assessSufficiency(candidates, budget.max_candidates);
   if (meter.exhausted.length) gaps.push(`Presupuesto agotado (${meter.exhausted.join(", ")}): resultado parcial.`);
+  if (issues.length) gaps.push("Hubo fallos durante la ejecución que redujeron el alcance de la búsqueda.");
+  if (!key) gaps.push("No se consultó internet porque la búsqueda web no está configurada.");
   if (!approved.length) gaps.push("No hay capacidades de Carbo aprobadas: las hipótesis no validan encaje técnico.");
 
   // CRM proposals only for selected candidates, from their verified evidence
@@ -201,7 +210,8 @@ export async function executeProspecting(sb: any, data: ProspectInput) {
       }
     }
   }
-  const result = { kind: "prospecting", execution, sufficiency, gaps, recommendation, candidates, profile_origin: profile.origin, usage: meter.usage(), budget, sources: sources.map((s) => ({ url: s.url, title: s.title, published_at: s.published_at })) };
-  await sb.from("research_runs").update({ status: execution === "completed" ? "done" : execution === "budget_exhausted" ? "partial" : execution === "search_unavailable" ? "not_configured" : "failed", search_error: errors.length ? errors.slice(0, 5).join(" · ") : null, fit: result as never, source_document_id: docId, extraction_id: exId }).eq("id", run.id);
-  return { run_id: run.id, organization: org.name, errors, proposals, ...result };
+  const view = P.buildProspectView({ execution, sufficiency, gaps, recommendation, candidates, profile_origin: profile.origin, notices: P.noticesFor(issues), usage: meter.usage(), sources: sources.map((s) => ({ url: s.url, title: s.title, published_at: s.published_at })) });
+  const result = { kind: "prospecting", ...view, budget };
+  await sb.from("research_runs").update({ status: execution === "completed" ? "done" : execution === "budget_exhausted" || execution === "partial" ? "partial" : execution === "search_unavailable" ? "not_configured" : "failed", search_error: errors.length ? errors.slice(0, 5).join(" · ") : null, fit: result as never, source_document_id: docId, extraction_id: exId }).eq("id", run.id);
+  return { run_id: run.id, organization: org.name, errors, proposals, view, ...result };
 }

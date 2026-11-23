@@ -77,7 +77,7 @@ export function finalizeCandidates(raw: RawCandidate[], sources: SourceRef[], op
   return out.sort((a, b) => b.score - a.score).slice(0, opts.max).map(({ score: _s, ...c }) => c);
 }
 
-export type ExecutionStatus = "completed" | "budget_exhausted" | "search_unavailable" | "failed";
+export type ExecutionStatus = "completed" | "partial" | "budget_exhausted" | "search_unavailable" | "failed";
 export type Sufficiency = "sufficient" | "partial" | "insufficient";
 
 /** Result sufficiency is judged on the evidence, never on the absence of technical errors. */
@@ -135,7 +135,98 @@ ${COMMON}
 - Descartá (relevance irrelevant) las que no tengan sentido comercial; no completes 5 con relleno.
 - recommendation: 2-4 frases en español rioplatense con la recomendación comercial principal (a cuáles ir primero y por qué), indicando si son exploratorias.`;
 
+export type Issue = { kind: "rate_limit" | "search_error" | "llm_error"; detail: string };
 export type ProspectView = { execution: ExecutionStatus; sufficiency: Sufficiency; gaps: string[]; recommendation: string; candidates: Candidate[]; profile_origin: string;
+  notices?: string[];
   usage: { queries: number; scrapes: number; llm_calls: number; seconds: number; cost_units: number }; sources: { url: string; title: string | null; published_at: string | null }[] };
-export const EXECUTION_LABEL: Record<ExecutionStatus, string> = { completed: "Completa", budget_exhausted: "Presupuesto agotado (parcial)", search_unavailable: "Búsqueda web no configurada", failed: "Falló" };
+export const EXECUTION_LABEL: Record<ExecutionStatus, string> = { completed: "Completa", partial: "Terminada con fallos (parcial)", budget_exhausted: "Presupuesto agotado (parcial)", search_unavailable: "Búsqueda web no configurada", failed: "Falló" };
 export const SUFFICIENCY_LABEL: Record<Sufficiency, string> = { sufficient: "Suficiente", partial: "Parcial", insufficient: "Insuficiente" };
+
+/** "Completa" only when nothing limited the scope; any failure or exhausted budget makes it partial. */
+export function deriveExecution(o: { searchConfigured: boolean; sources: number; exhausted: string[]; issues: Issue[] }): ExecutionStatus {
+  if (!o.searchConfigured) return "search_unavailable";
+  if (!o.sources) return "failed";
+  if (o.exhausted.length) return "budget_exhausted";
+  if (o.issues.length) return "partial";
+  return "completed";
+}
+
+/** Short user-facing explanations; technical detail stays in diagnostics. Never asks for sources on a temporary limit. */
+export function noticesFor(issues: Issue[]): string[] {
+  const out: string[] = [];
+  if (issues.some((i) => i.kind === "rate_limit")) out.push("El buscador limitó temporalmente las consultas: se conservaron los resultados obtenidos. Podés repetir la investigación en unos minutos.");
+  if (issues.some((i) => i.kind === "search_error")) out.push("Algunas búsquedas o páginas no respondieron: el alcance quedó reducido.");
+  if (issues.some((i) => i.kind === "llm_error")) out.push("Un paso de análisis del modelo falló: el resultado puede estar incompleto.");
+  return out;
+}
+
+/** Seconds/ms from a Retry-After header (delta or HTTP date); null when absent or invalid. */
+export function parseRetryAfter(v: string | null | undefined, now = Date.now()): number | null {
+  if (!v) return null; const n = Number(v.trim());
+  if (Number.isFinite(n) && n >= 0) return n * 1000;
+  const d = Date.parse(v); return Number.isFinite(d) ? Math.max(0, d - now) : null;
+}
+
+export const RETRY = { max_retries: 2, max_wait_ms: 20000, default_wait_ms: 2000 };
+export class RateLimited extends Error { constructor(public detail: string) { super("rate_limited"); } }
+
+/** Retries 429 honoring the provider's wait, bounded by retries, per-wait cap and remaining time. */
+export async function fetchWithRateLimit(doFetch: () => Promise<Response>, opts: { remainingMs: () => number; sleep?: (ms: number) => Promise<void> } ): Promise<Response> {
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let waited = 0;
+  for (let attempt = 0; ; attempt++) {
+    const r = await doFetch();
+    if (r.status !== 429) return r;
+    const wait = parseRetryAfter(r.headers.get("retry-after")) ?? RETRY.default_wait_ms * 2 ** attempt;
+    if (attempt >= RETRY.max_retries || wait > RETRY.max_wait_ms || waited + wait > RETRY.max_wait_ms || wait > opts.remainingMs()) {
+      throw new RateLimited(`429 tras ${attempt + 1} intento(s); espera pedida ${Math.round(wait / 1000)}s: ${(await r.text().catch(() => "")).slice(0, 200)}`);
+    }
+    waited += wait; await sleep(wait);
+  }
+}
+
+const isHttp = (u: unknown) => { try { return /^https?:$/.test(new URL(String(u)).protocol); } catch { return false; } };
+const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const CONFIRMING = /(confirmad|verificad|documentad|es miembro|son miembros|miembro activo|socio de|forma parte|integra)/;
+const QUALIFYING = /(calificad|oportunidad confirmada|compra confirmada|listo para comprar)/;
+
+/** Drops recommendation sentences that promote a pending linkage or an exploratory case; adds an explicit caveat instead. */
+export function reconcileRecommendation(rec: string, candidates: Candidate[]): string {
+  const sentences = rec.split(/(?<=[.!?])\s+/).filter((x) => x.trim());
+  const pending = candidates.filter((c) => !c.linkage.verified);
+  const allExploratory = !candidates.some((c) => c.tier === "qualified");
+  const dropped = new Set<string>();
+  const kept = sentences.filter((st) => {
+    const n = norm(st);
+    for (const c of pending) if (n.includes(norm(c.company)) && CONFIRMING.test(n)) { dropped.add(c.company); return false; }
+    if (allExploratory && QUALIFYING.test(n)) return false;
+    return true;
+  });
+  const caveats = pending.filter((c) => dropped.has(c.company) || norm(kept.join(" ")).includes(norm(c.company))).map((c) => c.company);
+  return [kept.join(" "), caveats.length ? `Vinculación con la institución pendiente de verificar: ${caveats.join(", ")}.` : ""].filter(Boolean).join(" ").trim();
+}
+
+/** Single structured result: sanitizes fields so every listed item can be displayed and inspected. */
+export function buildProspectView(v: ProspectView): ProspectView {
+  const sources = v.sources.filter((s) => isHttp(s.url)).filter((s, i, a) => a.findIndex((x) => x.url === s.url) === i)
+    .map((s) => ({ url: s.url, title: s.title?.trim() || null, published_at: s.published_at?.trim() || null }));
+  const fix = (u: string | null) => (u && isHttp(u) ? u : null);
+  const candidates = v.candidates.filter((c) => c.company?.trim()).map((c) => ({ ...c,
+    linkage: { ...c.linkage, url: fix(c.linkage.url), text: c.linkage.text?.trim() || "Sin descripción de la vinculación" },
+    signal: { ...c.signal, url: fix(c.signal.url) },
+    hypothesis: c.hypothesis?.trim() || "Sin hipótesis registrada", to_validate: c.to_validate?.trim() || "Sin pendientes registrados",
+    target_role: c.target_role?.trim() || "Puesto a definir", intro_request: c.intro_request?.trim() || "" }));
+  const gaps = [...new Set(v.gaps.map((g) => g?.trim()).filter(Boolean))];
+  const notices = [...new Set((v.notices ?? []).map((g) => g?.trim()).filter(Boolean))];
+  return { ...v, sources, candidates, gaps, notices, recommendation: reconcileRecommendation(v.recommendation ?? "", candidates) };
+}
+
+/** Chat message derived from the same view as the card: summary only, details live in the card. */
+export function prospectMessage(org: string, v: ProspectView): string {
+  const lines: string[] = [];
+  lines.push(v.recommendation || (v.candidates.length ? `Encontré ${v.candidates.length} candidata(s) vinculadas a ${org}.` : `No encontré empresas vinculadas a ${org} con evidencia suficiente.`));
+  if (v.candidates.length) lines.push(v.candidates.map((c) => `- **${c.company}** · ${c.tier === "qualified" ? "calificada" : "exploratoria"} · vinculación ${c.linkage.verified ? "documentada" : "pendiente de verificar"} · señal ${c.signal.verified ? "documentada" : "sin documentar"}`).join("\n"));
+  if (v.notices?.length) lines.push(v.notices.join(" "));
+  lines.push(`**Ejecución:** ${EXECUTION_LABEL[v.execution]} · **Suficiencia:** ${SUFFICIENCY_LABEL[v.sufficiency]}. El detalle por empresa, las brechas y las fuentes están en la tarjeta.`);
+  return lines.join("\n\n");
+}
