@@ -121,6 +121,75 @@ export type Database = {
           },
         ]
       }
+      brain_actions: {
+        Row: {
+          after: Json | null
+          before: Json | null
+          created_at: string
+          created_by: string | null
+          id: string
+          op: string
+          record_id: string
+          summary: string
+          table_name: string
+          thread_id: string | null
+          undone_at: string | null
+          undone_by: string | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          op: string
+          record_id: string
+          summary: string
+          table_name: string
+          thread_id?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          op?: string
+          record_id?: string
+          summary?: string
+          table_name?: string
+          thread_id?: string | null
+          undone_at?: string | null
+          undone_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_actions_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "brain_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_extractions: {
         Row: {
           confirmed_at: string | null
@@ -174,6 +243,60 @@ export type Database = {
           },
           {
             foreignKeyName: "brain_extractions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_messages: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          parts: Json
+          role: string
+          thread_id: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parts?: Json
+          role: string
+          thread_id: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parts?: Json
+          role?: string
+          thread_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "brain_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_messages_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -305,6 +428,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brain_queries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_threads: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          focus_id: string | null
+          focus_type: string | null
+          id: string
+          owner_user_id: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          focus_id?: string | null
+          focus_type?: string | null
+          id?: string
+          owner_user_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          focus_id?: string | null
+          focus_type?: string | null
+          id?: string
+          owner_user_id?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_threads_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2208,6 +2381,7 @@ export type Database = {
         Args: { _file: string; _hash: string; _rows: Json; _ws: string }
         Returns: Json
       }
+      brain_undo_action: { Args: { _id: string }; Returns: Json }
       confirm_extraction: {
         Args: { _decisions: Json; _extraction: string }
         Returns: Json
@@ -2248,6 +2422,7 @@ export type Database = {
       normalize_text: { Args: { t: string }; Returns: string }
       opp_ws: { Args: { _id: string }; Returns: string }
       org_ws: { Args: { _id: string }; Returns: string }
+      owns_brain_thread: { Args: { _id: string }; Returns: boolean }
       person_ws: { Args: { _id: string }; Returns: string }
       project_ws: { Args: { _id: string }; Returns: string }
       revert_import_batch: { Args: { _batch: string }; Returns: Json }

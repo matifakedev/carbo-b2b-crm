@@ -84,7 +84,7 @@ export function BrainToggle(props: { ws: string; focusType: Focus; focusId: stri
   const [open, setOpen] = useState(false);
   return (
     <div className="space-y-2">
-      <Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>{open ? "Cerrar Brain" : (props.label ?? "Preguntar al Brain")}</Button>
+      <div className="flex flex-wrap gap-2">{(props.focusType === "person" || props.focusType === "organization" || props.focusType === "project") && <Button size="sm" asChild><Link to="/chat" search={{ foco: `${props.focusType}:${props.focusId}` }}>Hablar con el Brain sobre esto</Link></Button>}<Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>{open ? "Cerrar Brain" : (props.label ?? "Preguntar al Brain")}</Button></div>
       {open && <BrainPanel ws={props.ws} focusType={props.focusType} focusId={props.focusId} />}
     </div>
   );

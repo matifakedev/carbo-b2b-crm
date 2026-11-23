@@ -12,14 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedActividadRouteImport } from './routes/_authenticated/actividad'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedCapacidadesRouteImport } from './routes/_authenticated/capacidades'
+import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
 import { Route as AuthenticatedEquipoRouteImport } from './routes/_authenticated/equipo'
 import { Route as AuthenticatedImportarAgendaRouteImport } from './routes/_authenticated/importar-agenda'
 import { Route as AuthenticatedIntroduccionesRouteImport } from './routes/_authenticated/introducciones'
 import { Route as AuthenticatedOportunidadesRouteImport } from './routes/_authenticated/oportunidades'
 import { Route as AuthenticatedRedRouteImport } from './routes/_authenticated/red'
 import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as AuthenticatedChatThreadIdRouteImport } from './routes/_authenticated/chat.$threadId'
 import { Route as AuthenticatedConversacionesIndexRouteImport } from './routes/_authenticated/conversaciones.index'
 import { Route as AuthenticatedConversacionesImportarRouteImport } from './routes/_authenticated/conversaciones.importar'
 import { Route as AuthenticatedOrganizacionesIndexRouteImport } from './routes/_authenticated/organizaciones.index'
@@ -46,6 +50,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedActividadRoute = AuthenticatedActividadRouteImport.update({
+  id: '/actividad',
+  path: '/actividad',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -57,6 +66,11 @@ const AuthenticatedCapacidadesRoute =
     path: '/capacidades',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedEquipoRoute = AuthenticatedEquipoRouteImport.update({
   id: '/equipo',
   path: '/equipo',
@@ -90,6 +104,17 @@ const InvitacionTokenRoute = InvitacionTokenRouteImport.update({
   path: '/invitacion/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedChatRoute,
+} as any)
+const AuthenticatedChatThreadIdRoute =
+  AuthenticatedChatThreadIdRouteImport.update({
+    id: '/$threadId',
+    path: '/$threadId',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
 const AuthenticatedConversacionesIndexRoute =
   AuthenticatedConversacionesIndexRouteImport.update({
     id: '/conversaciones/',
@@ -159,20 +184,24 @@ const AuthenticatedConversacionesRevisionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/actividad': typeof AuthenticatedActividadRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/capacidades': typeof AuthenticatedCapacidadesRoute
+  '/chat': typeof AuthenticatedChatRouteWithChildren
   '/equipo': typeof AuthenticatedEquipoRoute
   '/importar-agenda': typeof AuthenticatedImportarAgendaRoute
   '/introducciones': typeof AuthenticatedIntroduccionesRoute
   '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
   '/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
   '/proyectos/$id': typeof AuthenticatedProyectosIdRoute
+  '/chat/': typeof AuthenticatedChatIndexRoute
   '/conversaciones/': typeof AuthenticatedConversacionesIndexRoute
   '/organizaciones/': typeof AuthenticatedOrganizacionesIndexRoute
   '/personas/': typeof AuthenticatedPersonasIndexRoute
@@ -182,6 +211,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/actividad': typeof AuthenticatedActividadRoute
   '/agenda': typeof AuthenticatedAgendaRoute
   '/capacidades': typeof AuthenticatedCapacidadesRoute
   '/equipo': typeof AuthenticatedEquipoRoute
@@ -190,12 +220,14 @@ export interface FileRoutesByTo {
   '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
   '/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
   '/proyectos/$id': typeof AuthenticatedProyectosIdRoute
+  '/chat': typeof AuthenticatedChatIndexRoute
   '/conversaciones': typeof AuthenticatedConversacionesIndexRoute
   '/organizaciones': typeof AuthenticatedOrganizacionesIndexRoute
   '/personas': typeof AuthenticatedPersonasIndexRoute
@@ -207,20 +239,24 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/actividad': typeof AuthenticatedActividadRoute
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/capacidades': typeof AuthenticatedCapacidadesRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/equipo': typeof AuthenticatedEquipoRoute
   '/_authenticated/importar-agenda': typeof AuthenticatedImportarAgendaRoute
   '/_authenticated/introducciones': typeof AuthenticatedIntroduccionesRoute
   '/_authenticated/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/_authenticated/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
+  '/_authenticated/chat/$threadId': typeof AuthenticatedChatThreadIdRoute
   '/_authenticated/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
   '/_authenticated/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/_authenticated/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/_authenticated/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/_authenticated/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
   '/_authenticated/proyectos/$id': typeof AuthenticatedProyectosIdRoute
+  '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/conversaciones/': typeof AuthenticatedConversacionesIndexRoute
   '/_authenticated/organizaciones/': typeof AuthenticatedOrganizacionesIndexRoute
   '/_authenticated/personas/': typeof AuthenticatedPersonasIndexRoute
@@ -232,20 +268,24 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/actividad'
     | '/agenda'
     | '/capacidades'
+    | '/chat'
     | '/equipo'
     | '/importar-agenda'
     | '/introducciones'
     | '/oportunidades'
     | '/red'
     | '/invitacion/$token'
+    | '/chat/$threadId'
     | '/conversaciones/importar'
     | '/organizaciones/$id'
     | '/organizaciones/nueva'
     | '/personas/$id'
     | '/personas/nueva'
     | '/proyectos/$id'
+    | '/chat/'
     | '/conversaciones/'
     | '/organizaciones/'
     | '/personas/'
@@ -255,6 +295,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/actividad'
     | '/agenda'
     | '/capacidades'
     | '/equipo'
@@ -263,12 +304,14 @@ export interface FileRouteTypes {
     | '/oportunidades'
     | '/red'
     | '/invitacion/$token'
+    | '/chat/$threadId'
     | '/conversaciones/importar'
     | '/organizaciones/$id'
     | '/organizaciones/nueva'
     | '/personas/$id'
     | '/personas/nueva'
     | '/proyectos/$id'
+    | '/chat'
     | '/conversaciones'
     | '/organizaciones'
     | '/personas'
@@ -279,20 +322,24 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/actividad'
     | '/_authenticated/agenda'
     | '/_authenticated/capacidades'
+    | '/_authenticated/chat'
     | '/_authenticated/equipo'
     | '/_authenticated/importar-agenda'
     | '/_authenticated/introducciones'
     | '/_authenticated/oportunidades'
     | '/_authenticated/red'
     | '/invitacion/$token'
+    | '/_authenticated/chat/$threadId'
     | '/_authenticated/conversaciones/importar'
     | '/_authenticated/organizaciones/$id'
     | '/_authenticated/organizaciones/nueva'
     | '/_authenticated/personas/$id'
     | '/_authenticated/personas/nueva'
     | '/_authenticated/proyectos/$id'
+    | '/_authenticated/chat/'
     | '/_authenticated/conversaciones/'
     | '/_authenticated/organizaciones/'
     | '/_authenticated/personas/'
@@ -330,6 +377,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/actividad': {
+      id: '/_authenticated/actividad'
+      path: '/actividad'
+      fullPath: '/actividad'
+      preLoaderRoute: typeof AuthenticatedActividadRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agenda': {
       id: '/_authenticated/agenda'
       path: '/agenda'
@@ -342,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/capacidades'
       fullPath: '/capacidades'
       preLoaderRoute: typeof AuthenticatedCapacidadesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/chat': {
+      id: '/_authenticated/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof AuthenticatedChatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/equipo': {
@@ -385,6 +446,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/invitacion/$token'
       preLoaderRoute: typeof InvitacionTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/chat/': {
+      id: '/_authenticated/chat/'
+      path: '/'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/chat/$threadId': {
+      id: '/_authenticated/chat/$threadId'
+      path: '/$threadId'
+      fullPath: '/chat/$threadId'
+      preLoaderRoute: typeof AuthenticatedChatThreadIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
     }
     '/_authenticated/conversaciones/': {
       id: '/_authenticated/conversaciones/'
@@ -466,9 +541,24 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedChatRouteChildren {
+  AuthenticatedChatThreadIdRoute: typeof AuthenticatedChatThreadIdRoute
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+}
+
+const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
+  AuthenticatedChatThreadIdRoute: AuthenticatedChatThreadIdRoute,
+  AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
+}
+
+const AuthenticatedChatRouteWithChildren =
+  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedActividadRoute: typeof AuthenticatedActividadRoute
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedCapacidadesRoute: typeof AuthenticatedCapacidadesRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedEquipoRoute: typeof AuthenticatedEquipoRoute
   AuthenticatedImportarAgendaRoute: typeof AuthenticatedImportarAgendaRoute
   AuthenticatedIntroduccionesRoute: typeof AuthenticatedIntroduccionesRoute
@@ -488,8 +578,10 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedActividadRoute: AuthenticatedActividadRoute,
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedCapacidadesRoute: AuthenticatedCapacidadesRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedEquipoRoute: AuthenticatedEquipoRoute,
   AuthenticatedImportarAgendaRoute: AuthenticatedImportarAgendaRoute,
   AuthenticatedIntroduccionesRoute: AuthenticatedIntroduccionesRoute,

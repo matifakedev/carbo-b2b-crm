@@ -6,6 +6,6 @@ export const Route = createFileRoute("/")({
   head: () => ({ meta: [{ title: "CRM - CARBO" }, { name: "description", content: "CRM privado de Carbo Energy para ventas B2B de almacenamiento energético." }, { property: "og:title", content: "CRM - CARBO" }, { property: "og:description", content: "CRM privado de Carbo Energy para ventas B2B de almacenamiento energético." }, { name: "robots", content: "noindex" }] }),
   beforeLoad: async () => {
     const { data } = await supabase.auth.getUser();
-    throw redirect({ to: data.user ? "/personas" : "/auth" });
+    throw redirect({ to: data.user ? "/chat" : "/auth" });
   },
 });

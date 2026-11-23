@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/lib/workspace";
 
 const nav = [
+  { to: "/chat", label: "Brain" },
   { to: "/agenda", label: "Agenda" },
   { to: "/red", label: "Red" },
   { to: "/proyectos", label: "Proyectos" },
@@ -51,7 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </select>
         </div>
         <nav className="flex-1 py-4">
-          {nav.map((n) => (
+          {nav.map((n, i) => (<div key={n.to}>{i === 1 && <div className="label-mono px-6 pb-1 pt-4 text-sidebar-muted">Módulos</div>}
             <Link
               key={n.to}
               to={n.to}
@@ -59,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               activeProps={{ className: "!border-mint bg-sidebar-accent !text-sidebar-foreground" }}
             >
               {n.label}
-            </Link>
+            </Link></div>
           ))}
         </nav>
         <div className="border-t border-sidebar-border px-6 py-4">
