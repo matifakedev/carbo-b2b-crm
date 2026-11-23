@@ -28,3 +28,10 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+- All CRM data is scoped by `workspace_id`; RLS uses `is_workspace_member` / `is_workspace_admin` security-definer functions. Why: permissions must hold in the backend, not just the UI.
+- Public signup is disabled; accounts are created only via single-use hashed invitation tokens (`src/lib/invitations.functions.ts`) or the `admin_bootstrap` email trigger. Why: private workspace, no access by URL.
+- People ↔ organizations is N:N through `affiliations`; never put an org FK on `people`. Why: future introductions/projects reference people across orgs.
+- Records are archived (`archived_at`), never deleted; audit fields are set by the `set_audit_fields` trigger.
+- Duplicates are only suggested (`find_person_duplicates`, `find_org_duplicates`), never merged automatically.
