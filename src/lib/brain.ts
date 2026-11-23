@@ -1,6 +1,6 @@
 /** Pure Brain helpers (no I/O) — shared by server functions, UI and tests. */
 
-export type ProposalKind = "person" | "affiliation" | "introduction" | "need" | "task";
+export type ProposalKind = "person" | "affiliation" | "introduction" | "need" | "task" | "project" | "participant" | "project_update";
 export type Certainty = "stated" | "possible";
 export type IntroKind = "done" | "request" | "hypothetical";
 
@@ -21,7 +21,17 @@ export type ProposalItem = {
   certainty: Certainty;
   evidence: string;
   ambiguity: string | null;
+  name: string | null;
+  location: string | null;
+  power_mw: number | null;
+  energy_mwh: number | null;
+  duration_h: number | null;
+  role: ParticipantRole | null;
+  blockers: string | null;
+  next_milestone: string | null;
+  project_ref: string | null;
 };
+export type ParticipantRole = "buyer" | "end_user" | "economic_decider" | "technical_evaluator" | "internal_champion" | "other";
 
 const str = { type: ["string", "null"] } as const;
 export const EXTRACTION_SCHEMA = {
@@ -34,15 +44,17 @@ export const EXTRACTION_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["kind", "ref", "full_name", "description", "title", "org_name", "person_ref", "introducer_ref", "introduced_ref", "target_ref", "target_description", "purpose", "intro_kind", "certainty", "evidence", "ambiguity"],
+        required: ["kind", "ref", "full_name", "description", "title", "org_name", "person_ref", "introducer_ref", "introduced_ref", "target_ref", "target_description", "purpose", "intro_kind", "certainty", "evidence", "ambiguity", "name", "location", "power_mw", "energy_mwh", "duration_h", "role", "blockers", "next_milestone", "project_ref"],
         properties: {
-          kind: { type: "string", enum: ["person", "affiliation", "introduction", "need", "task"] },
+          kind: { type: "string", enum: ["person", "affiliation", "introduction", "need", "task", "project", "participant", "project_update"] },
           ref: str, full_name: str, description: str, title: str, org_name: str, person_ref: str,
           introducer_ref: str, introduced_ref: str, target_ref: str, target_description: str, purpose: str,
           intro_kind: { type: ["string", "null"], enum: ["done", "request", "hypothetical", null] },
           certainty: { type: "string", enum: ["stated", "possible"] },
           evidence: { type: "string" },
-          ambiguity: str,
+          ambiguity: str, name: str, location: str, blockers: str, next_milestone: str, project_ref: str,
+          power_mw: { type: ["number", "null"] }, energy_mwh: { type: ["number", "null"] }, duration_h: { type: ["number", "null"] },
+          role: { type: ["string", "null"], enum: ["buyer", "end_user", "economic_decider", "technical_evaluator", "internal_champion", "other", null] },
         },
       },
     },
@@ -57,6 +69,9 @@ REGLAS:
 - certainty=stated solo si el texto afirma algo hecho o un compromiso explícito. "podría presentarte", "habría que hablar", "quizás" => certainty=possible.
 - intro_kind: done solo si la presentación ya ocurrió; request si alguien la pidió o se comprometió explícitamente; hypothetical si es una posibilidad.
 - Si algo es ambiguo (nombre incompleto, a quién se refiere, organización dudosa), completá ambiguity explicando qué falta resolver. No inventes nombres, cargos ni organizaciones.
+- Proyectos (kind=project, ref corto pr1, pr2...): name, description (necesidad), location, blockers, next_milestone. power_mw (MW), energy_mwh (MWh) y duration_h (horas) SOLO si el número aparece explícito en el texto con esa unidad; nunca conviertas ni calcules uno a partir de otro.
+- Participantes (kind=participant): project_ref + role (buyer=comprador contractual posible, end_user=usuario final, economic_decider, technical_evaluator, internal_champion=promotor interno, other) + person_ref o org_name; si no se sabe quién es, target_description.
+- kind=project_update: cambios a un proyecto existente mencionado por nombre (name) con los campos nuevos. No propongas etapas comerciales, probabilidades ni montos.
 - Campos que no aplican: null.`;
 
 const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -65,6 +80,7 @@ const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
 export function sanitizeProposals(items: ProposalItem[], original: string): ProposalItem[] {
   const text = norm(original);
   const personRefs = new Set(items.filter((i) => i.kind === "person" && i.ref).map((i) => i.ref as string));
+  const projectRefs = new Set(items.filter((i) => i.kind === "project" && i.ref).map((i) => i.ref as string));
   return items.map((raw) => {
     const i = { ...raw };
     const notes: string[] = i.ambiguity ? [i.ambiguity] : [];
@@ -77,9 +93,22 @@ export function sanitizeProposals(items: ProposalItem[], original: string): Prop
     for (const k of ["person_ref", "introducer_ref", "introduced_ref", "target_ref"] as const) {
       if (i[k] && !personRefs.has(i[k] as string)) { notes.push(`Referencia ${i[k]} sin persona propuesta.`); i[k] = null; }
     }
+    for (const [k, unit] of [["power_mw", "MW"], ["energy_mwh", "MWh"], ["duration_h", "h"]] as const) {
+      const v = i[k];
+      if (v != null && !numberStated(original, v)) { notes.push(`Se descartó ${v} ${unit}: el número no aparece en el texto.`); i[k] = null; }
+    }
+    if (i.project_ref && !projectRefs.has(i.project_ref)) { notes.push(`Referencia ${i.project_ref} sin proyecto propuesto.`); i.project_ref = null; }
+    if (i.kind === "participant" && !i.project_ref) notes.push("Elegí el proyecto al que pertenece.");
+    if (i.kind === "project_update") notes.push("Elegí el proyecto existente a actualizar.");
     i.ambiguity = notes.length ? notes.join(" ") : null;
     return i;
   });
+}
+
+/** True when the number literally appears in the text (accepts comma or dot decimals). */
+export function numberStated(text: string, n: number): boolean {
+  const variants = new Set([String(n), String(n).replace(".", ",")]);
+  return [...variants].some((v) => new RegExp(`(^|[^0-9.,])${v.replace(/[.]/g, "\\.")}([^0-9]|$)`).test(text));
 }
 
 /* ---------------- Context Q&A ---------------- */
@@ -125,6 +154,7 @@ export function describeScope(records: ContextRecord[]): string {
     person: ["persona", "personas"], organization: ["organización", "organizaciones"], affiliation: ["afiliación", "afiliaciones"],
     introduction: ["introducción", "introducciones"], conversation: ["conversación", "conversaciones"], task: ["tarea", "tareas"],
     need: ["necesidad", "necesidades"], link: ["vínculo", "vínculos"],
+    project: ["proyecto", "proyectos"], participant: ["participante", "participantes"], opportunity: ["oportunidad", "oportunidades"],
   };
   const parts = Object.entries(counts).map(([t, n]) => `${n} ${(names[t] ?? [t, t])[n === 1 ? 0 : 1]}`);
   return `Consulté solo registros confirmados vinculados a este foco: ${parts.join(", ") || "ninguno"}. No revisé el resto de la red.`;

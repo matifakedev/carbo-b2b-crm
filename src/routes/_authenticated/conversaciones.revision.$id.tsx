@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_authenticated/conversaciones/revision/$i
   component: Review,
 });
 
-const KIND: Record<string, string> = { person: "Persona", affiliation: "Afiliación", introduction: "Introducción", need: "Necesidad", task: "Tarea" };
+const KIND: Record<string, string> = { person: "Persona", affiliation: "Afiliación", introduction: "Introducción", need: "Necesidad", task: "Tarea", project: "Proyecto", participant: "Participante", project_update: "Actualizar proyecto" };
 const STATUS: Record<string, string> = { pending: "Pendiente", accepted: "Aceptada", corrected: "Corregida", rejected: "Rechazada" };
 type Row = { id: string; kind: string; proposed: ProposalItem; evidence: string | null; ambiguity: string | null; status: string; final: Record<string, unknown> | null; decided_by: string | null; decided_at: string | null; created_record_id: string | null; workspace_id: string };
 
@@ -86,8 +86,12 @@ const FIELDS: Record<string, [keyof ProposalItem, string][]> = {
   affiliation: [["person_ref", "Persona (ref)"], ["org_name", "Organización"], ["title", "Cargo"]],
   introduction: [["introducer_ref", "Presenta (ref)"], ["introduced_ref", "Presentado (ref)"], ["target_ref", "Destino (ref)"], ["target_description", "Destino sin identificar"], ["purpose", "Propósito"]],
   need: [["description", "Necesidad"], ["person_ref", "Persona (ref)"]],
-  task: [["title", "Tarea"], ["person_ref", "Persona (ref)"]],
+  task: [["title", "Tarea"], ["person_ref", "Persona (ref)"], ["project_ref", "Proyecto (ref)"]],
+  project: [["name", "Nombre"], ["description", "Necesidad"], ["location", "Ubicación"], ["power_mw", "Potencia (MW)"], ["energy_mwh", "Capacidad (MWh)"], ["duration_h", "Duración (h)"], ["blockers", "Bloqueos"], ["next_milestone", "Siguiente hito"]],
+  participant: [["project_ref", "Proyecto (ref)"], ["person_ref", "Persona (ref)"], ["org_name", "Organización"], ["target_description", "Sin identificar"]],
+  project_update: [["name", "Proyecto mencionado"], ["description", "Necesidad"], ["location", "Ubicación"], ["power_mw", "Potencia (MW)"], ["energy_mwh", "Capacidad (MWh)"], ["duration_h", "Duración (h)"], ["blockers", "Bloqueos"], ["next_milestone", "Siguiente hito"]],
 };
+const ROLE_OPTS: Record<string, string> = { buyer: "Comprador contractual posible", end_user: "Usuario final", economic_decider: "Decisor económico", technical_evaluator: "Evaluador técnico", internal_champion: "Promotor interno", other: "Otro" };
 
 function ProposalCard({ p, ws, d, onChange }: { p: Row; ws: string; d: Decision | undefined; onChange: (d: Partial<Decision>) => void }) {
   const done = p.status !== "pending";
@@ -96,6 +100,11 @@ function ProposalCard({ p, ws, d, onChange }: { p: Row; ws: string; d: Decision 
     queryKey: ["dup-person", ws, p.proposed.full_name],
     enabled: p.kind === "person" && !done && !!p.proposed.full_name,
     queryFn: async () => (await supabase.rpc("find_person_duplicates", { _ws: ws, _name: p.proposed.full_name ?? "" })).data ?? [],
+  });
+  const needsProject = !done && (p.kind === "project_update" || p.kind === "participant" || p.kind === "task" || p.kind === "project");
+  const { data: projects = [] } = useQuery({
+    queryKey: ["project-opts", ws], enabled: needsProject,
+    queryFn: async () => (await supabase.from("projects").select("id, name").eq("workspace_id", ws).is("archived_at", null).order("name")).data ?? [],
   });
   const edit = (k: string, val: string | null) => onChange({ action: "correct", edits: { ...(d?.edits ?? {}), [k]: val } });
   return (
@@ -122,6 +131,17 @@ function ProposalCard({ p, ws, d, onChange }: { p: Row; ws: string; d: Decision 
             )}
             {p.kind === "introduction" && (
               <Field label="Tipo" htmlFor={`${p.id}-ik`}><select id={`${p.id}-ik`} className={selectClass} value={(v["intro_kind"] as string) ?? "hypothetical"} onChange={(e) => edit("intro_kind", e.target.value)}><option value="hypothetical">Hipotética</option><option value="request">Pedida</option><option value="done">Realizada</option></select></Field>
+            )}
+            {p.kind === "participant" && (
+              <Field label="Rol" htmlFor={`${p.id}-role`}><select id={`${p.id}-role`} className={selectClass} value={(v["role"] as string) ?? "other"} onChange={(e) => edit("role", e.target.value)}>{Object.entries(ROLE_OPTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+            )}
+            {needsProject && (
+              <Field label={p.kind === "project" ? "¿Es un proyecto existente?" : "Proyecto existente"} htmlFor={`${p.id}-pj`}>
+                <select id={`${p.id}-pj`} className={selectClass} value={(v["project_id"] as string) ?? ""} onChange={(e) => edit("project_id", e.target.value || null)}>
+                  <option value="">{p.kind === "project" ? "Crear proyecto nuevo" : "Usar el proyecto propuesto (ref)"}</option>
+                  {projects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+              </Field>
             )}
             {p.kind === "person" && (
               <Field label="Asociar a" htmlFor={`${p.id}-dup`} {...(dups.length ? { hint: "Hay posibles duplicados." } : {})}>

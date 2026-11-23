@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tag } from "@/components/crm/fields";
 
-type Focus = "person" | "organization" | "introduction" | "conversation";
+type Focus = "person" | "organization" | "introduction" | "conversation" | "project" | "opportunity";
 type Rec = { ref: string; type: string; label: string };
 type Result = Awaited<ReturnType<typeof askBrain>>;
 

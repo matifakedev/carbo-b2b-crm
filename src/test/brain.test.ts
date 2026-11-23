@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeProposals, validateAnswer, type ProposalItem } from "@/lib/brain";
 import { buildDecisions } from "@/lib/brain-review";
 
-const base: ProposalItem = { kind: "person", ref: null, full_name: null, description: null, title: null, org_name: null, person_ref: null, introducer_ref: null, introduced_ref: null, target_ref: null, target_description: null, purpose: null, intro_kind: null, certainty: "stated", evidence: "", ambiguity: null };
+const base: ProposalItem = { kind: "person", ref: null, full_name: null, description: null, title: null, org_name: null, person_ref: null, introducer_ref: null, introduced_ref: null, target_ref: null, target_description: null, purpose: null, intro_kind: null, certainty: "stated", evidence: "", ambiguity: null, name: null, location: null, power_mw: null, energy_mwh: null, duration_h: null, role: null, blockers: null, next_milestone: null, project_ref: null };
 const note = "Hablé con Ana Pérez. Me dijo que podría presentarte al jefe de planta de una minera.";
 
 describe("brain proposals", () => {

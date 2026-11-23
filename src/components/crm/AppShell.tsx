@@ -7,6 +7,8 @@ import { useWorkspace } from "@/lib/workspace";
 const nav = [
   { to: "/agenda", label: "Agenda" },
   { to: "/red", label: "Red" },
+  { to: "/proyectos", label: "Proyectos" },
+  { to: "/oportunidades", label: "Oportunidades" },
   { to: "/personas", label: "Personas" },
   { to: "/organizaciones", label: "Organizaciones" },
   { to: "/introducciones", label: "Introducciones" },

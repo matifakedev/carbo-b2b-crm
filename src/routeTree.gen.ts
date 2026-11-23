@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
 import { Route as AuthenticatedEquipoRouteImport } from './routes/_authenticated/equipo'
 import { Route as AuthenticatedIntroduccionesRouteImport } from './routes/_authenticated/introducciones'
+import { Route as AuthenticatedOportunidadesRouteImport } from './routes/_authenticated/oportunidades'
 import { Route as AuthenticatedRedRouteImport } from './routes/_authenticated/red'
 import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
 import { Route as AuthenticatedConversacionesIndexRouteImport } from './routes/_authenticated/conversaciones.index'
@@ -25,6 +26,8 @@ import { Route as AuthenticatedOrganizacionesNuevaRouteImport } from './routes/_
 import { Route as AuthenticatedPersonasIndexRouteImport } from './routes/_authenticated/personas.index'
 import { Route as AuthenticatedPersonasIdRouteImport } from './routes/_authenticated/personas.$id'
 import { Route as AuthenticatedPersonasNuevaRouteImport } from './routes/_authenticated/personas.nueva'
+import { Route as AuthenticatedProyectosIndexRouteImport } from './routes/_authenticated/proyectos.index'
+import { Route as AuthenticatedProyectosIdRouteImport } from './routes/_authenticated/proyectos.$id'
 import { Route as AuthenticatedConversacionesRevisionIdRouteImport } from './routes/_authenticated/conversaciones.revision.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -55,6 +58,12 @@ const AuthenticatedIntroduccionesRoute =
   AuthenticatedIntroduccionesRouteImport.update({
     id: '/introducciones',
     path: '/introducciones',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedOportunidadesRoute =
+  AuthenticatedOportunidadesRouteImport.update({
+    id: '/oportunidades',
+    path: '/oportunidades',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedRedRoute = AuthenticatedRedRouteImport.update({
@@ -114,6 +123,18 @@ const AuthenticatedPersonasNuevaRoute =
     path: '/personas/nueva',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProyectosIndexRoute =
+  AuthenticatedProyectosIndexRouteImport.update({
+    id: '/proyectos/',
+    path: '/proyectos/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProyectosIdRoute =
+  AuthenticatedProyectosIdRouteImport.update({
+    id: '/proyectos/$id',
+    path: '/proyectos/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConversacionesRevisionIdRoute =
   AuthenticatedConversacionesRevisionIdRouteImport.update({
     id: '/conversaciones/revision/$id',
@@ -127,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/equipo': typeof AuthenticatedEquipoRoute
   '/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
@@ -134,9 +156,11 @@ export interface FileRoutesByFullPath {
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
+  '/proyectos/$id': typeof AuthenticatedProyectosIdRoute
   '/conversaciones/': typeof AuthenticatedConversacionesIndexRoute
   '/organizaciones/': typeof AuthenticatedOrganizacionesIndexRoute
   '/personas/': typeof AuthenticatedPersonasIndexRoute
+  '/proyectos/': typeof AuthenticatedProyectosIndexRoute
   '/conversaciones/revision/$id': typeof AuthenticatedConversacionesRevisionIdRoute
 }
 export interface FileRoutesByTo {
@@ -145,6 +169,7 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthenticatedAgendaRoute
   '/equipo': typeof AuthenticatedEquipoRoute
   '/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
@@ -152,9 +177,11 @@ export interface FileRoutesByTo {
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
+  '/proyectos/$id': typeof AuthenticatedProyectosIdRoute
   '/conversaciones': typeof AuthenticatedConversacionesIndexRoute
   '/organizaciones': typeof AuthenticatedOrganizacionesIndexRoute
   '/personas': typeof AuthenticatedPersonasIndexRoute
+  '/proyectos': typeof AuthenticatedProyectosIndexRoute
   '/conversaciones/revision/$id': typeof AuthenticatedConversacionesRevisionIdRoute
 }
 export interface FileRoutesById {
@@ -165,6 +192,7 @@ export interface FileRoutesById {
   '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
   '/_authenticated/equipo': typeof AuthenticatedEquipoRoute
   '/_authenticated/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/_authenticated/oportunidades': typeof AuthenticatedOportunidadesRoute
   '/_authenticated/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/_authenticated/conversaciones/importar': typeof AuthenticatedConversacionesImportarRoute
@@ -172,9 +200,11 @@ export interface FileRoutesById {
   '/_authenticated/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
   '/_authenticated/personas/$id': typeof AuthenticatedPersonasIdRoute
   '/_authenticated/personas/nueva': typeof AuthenticatedPersonasNuevaRoute
+  '/_authenticated/proyectos/$id': typeof AuthenticatedProyectosIdRoute
   '/_authenticated/conversaciones/': typeof AuthenticatedConversacionesIndexRoute
   '/_authenticated/organizaciones/': typeof AuthenticatedOrganizacionesIndexRoute
   '/_authenticated/personas/': typeof AuthenticatedPersonasIndexRoute
+  '/_authenticated/proyectos/': typeof AuthenticatedProyectosIndexRoute
   '/_authenticated/conversaciones/revision/$id': typeof AuthenticatedConversacionesRevisionIdRoute
 }
 export interface FileRouteTypes {
@@ -185,6 +215,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/equipo'
     | '/introducciones'
+    | '/oportunidades'
     | '/red'
     | '/invitacion/$token'
     | '/conversaciones/importar'
@@ -192,9 +223,11 @@ export interface FileRouteTypes {
     | '/organizaciones/nueva'
     | '/personas/$id'
     | '/personas/nueva'
+    | '/proyectos/$id'
     | '/conversaciones/'
     | '/organizaciones/'
     | '/personas/'
+    | '/proyectos/'
     | '/conversaciones/revision/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -203,6 +236,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/equipo'
     | '/introducciones'
+    | '/oportunidades'
     | '/red'
     | '/invitacion/$token'
     | '/conversaciones/importar'
@@ -210,9 +244,11 @@ export interface FileRouteTypes {
     | '/organizaciones/nueva'
     | '/personas/$id'
     | '/personas/nueva'
+    | '/proyectos/$id'
     | '/conversaciones'
     | '/organizaciones'
     | '/personas'
+    | '/proyectos'
     | '/conversaciones/revision/$id'
   id:
     | '__root__'
@@ -222,6 +258,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agenda'
     | '/_authenticated/equipo'
     | '/_authenticated/introducciones'
+    | '/_authenticated/oportunidades'
     | '/_authenticated/red'
     | '/invitacion/$token'
     | '/_authenticated/conversaciones/importar'
@@ -229,9 +266,11 @@ export interface FileRouteTypes {
     | '/_authenticated/organizaciones/nueva'
     | '/_authenticated/personas/$id'
     | '/_authenticated/personas/nueva'
+    | '/_authenticated/proyectos/$id'
     | '/_authenticated/conversaciones/'
     | '/_authenticated/organizaciones/'
     | '/_authenticated/personas/'
+    | '/_authenticated/proyectos/'
     | '/_authenticated/conversaciones/revision/$id'
   fileRoutesById: FileRoutesById
 }
@@ -284,6 +323,13 @@ declare module '@tanstack/react-router' {
       path: '/introducciones'
       fullPath: '/introducciones'
       preLoaderRoute: typeof AuthenticatedIntroduccionesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/oportunidades': {
+      id: '/_authenticated/oportunidades'
+      path: '/oportunidades'
+      fullPath: '/oportunidades'
+      preLoaderRoute: typeof AuthenticatedOportunidadesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/red': {
@@ -356,6 +402,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPersonasNuevaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/proyectos/': {
+      id: '/_authenticated/proyectos/'
+      path: '/proyectos'
+      fullPath: '/proyectos/'
+      preLoaderRoute: typeof AuthenticatedProyectosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proyectos/$id': {
+      id: '/_authenticated/proyectos/$id'
+      path: '/proyectos/$id'
+      fullPath: '/proyectos/$id'
+      preLoaderRoute: typeof AuthenticatedProyectosIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/conversaciones/revision/$id': {
       id: '/_authenticated/conversaciones/revision/$id'
       path: '/conversaciones/revision/$id'
@@ -370,15 +430,18 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
   AuthenticatedEquipoRoute: typeof AuthenticatedEquipoRoute
   AuthenticatedIntroduccionesRoute: typeof AuthenticatedIntroduccionesRoute
+  AuthenticatedOportunidadesRoute: typeof AuthenticatedOportunidadesRoute
   AuthenticatedRedRoute: typeof AuthenticatedRedRoute
   AuthenticatedConversacionesImportarRoute: typeof AuthenticatedConversacionesImportarRoute
   AuthenticatedOrganizacionesIdRoute: typeof AuthenticatedOrganizacionesIdRoute
   AuthenticatedOrganizacionesNuevaRoute: typeof AuthenticatedOrganizacionesNuevaRoute
   AuthenticatedPersonasIdRoute: typeof AuthenticatedPersonasIdRoute
   AuthenticatedPersonasNuevaRoute: typeof AuthenticatedPersonasNuevaRoute
+  AuthenticatedProyectosIdRoute: typeof AuthenticatedProyectosIdRoute
   AuthenticatedConversacionesIndexRoute: typeof AuthenticatedConversacionesIndexRoute
   AuthenticatedOrganizacionesIndexRoute: typeof AuthenticatedOrganizacionesIndexRoute
   AuthenticatedPersonasIndexRoute: typeof AuthenticatedPersonasIndexRoute
+  AuthenticatedProyectosIndexRoute: typeof AuthenticatedProyectosIndexRoute
   AuthenticatedConversacionesRevisionIdRoute: typeof AuthenticatedConversacionesRevisionIdRoute
 }
 
@@ -386,6 +449,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
   AuthenticatedEquipoRoute: AuthenticatedEquipoRoute,
   AuthenticatedIntroduccionesRoute: AuthenticatedIntroduccionesRoute,
+  AuthenticatedOportunidadesRoute: AuthenticatedOportunidadesRoute,
   AuthenticatedRedRoute: AuthenticatedRedRoute,
   AuthenticatedConversacionesImportarRoute:
     AuthenticatedConversacionesImportarRoute,
@@ -393,9 +457,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOrganizacionesNuevaRoute: AuthenticatedOrganizacionesNuevaRoute,
   AuthenticatedPersonasIdRoute: AuthenticatedPersonasIdRoute,
   AuthenticatedPersonasNuevaRoute: AuthenticatedPersonasNuevaRoute,
+  AuthenticatedProyectosIdRoute: AuthenticatedProyectosIdRoute,
   AuthenticatedConversacionesIndexRoute: AuthenticatedConversacionesIndexRoute,
   AuthenticatedOrganizacionesIndexRoute: AuthenticatedOrganizacionesIndexRoute,
   AuthenticatedPersonasIndexRoute: AuthenticatedPersonasIndexRoute,
+  AuthenticatedProyectosIndexRoute: AuthenticatedProyectosIndexRoute,
   AuthenticatedConversacionesRevisionIdRoute:
     AuthenticatedConversacionesRevisionIdRoute,
 }

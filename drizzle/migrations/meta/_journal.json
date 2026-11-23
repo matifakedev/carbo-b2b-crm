@@ -22,6 +22,13 @@
       "when": 1795468113211,
       "tag": "0002_brain_contextual",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795468740417,
+      "tag": "0003_projects_and_opportunities",
+      "breakpoints": true
     }
   ]
 }

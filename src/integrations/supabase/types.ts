@@ -381,6 +381,7 @@ export type Database = {
           introduction_id: string | null
           organization_id: string | null
           person_id: string | null
+          project_id: string | null
           updated_at: string
           updated_by: string | null
           workspace_id: string
@@ -393,6 +394,7 @@ export type Database = {
           introduction_id?: string | null
           organization_id?: string | null
           person_id?: string | null
+          project_id?: string | null
           updated_at?: string
           updated_by?: string | null
           workspace_id: string
@@ -405,6 +407,7 @@ export type Database = {
           introduction_id?: string | null
           organization_id?: string | null
           person_id?: string | null
+          project_id?: string | null
           updated_at?: string
           updated_by?: string | null
           workspace_id?: string
@@ -436,6 +439,13 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -745,6 +755,147 @@ export type Database = {
           },
         ]
       }
+      opportunities: {
+        Row: {
+          advance_criteria: string | null
+          amount: number | null
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string | null
+          id: string
+          in_pipeline: boolean | null
+          kind: Database["public"]["Enums"]["opportunity_kind"]
+          known_pending: string | null
+          need: string
+          owner_user_id: string | null
+          project_id: string
+          rationale: string
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          stage: Database["public"]["Enums"]["opportunity_stage"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          advance_criteria?: string | null
+          amount?: number | null
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          in_pipeline?: boolean | null
+          kind?: Database["public"]["Enums"]["opportunity_kind"]
+          known_pending?: string | null
+          need: string
+          owner_user_id?: string | null
+          project_id: string
+          rationale: string
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          stage?: Database["public"]["Enums"]["opportunity_stage"]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          advance_criteria?: string | null
+          amount?: number | null
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string | null
+          id?: string
+          in_pipeline?: boolean | null
+          kind?: Database["public"]["Enums"]["opportunity_kind"]
+          known_pending?: string | null
+          need?: string
+          owner_user_id?: string | null
+          project_id?: string
+          rationale?: string
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          stage?: Database["public"]["Enums"]["opportunity_stage"]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      opportunity_stage_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          from_stage: Database["public"]["Enums"]["opportunity_stage"] | null
+          id: string
+          note: string | null
+          opportunity_id: string
+          to_stage: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          from_stage?: Database["public"]["Enums"]["opportunity_stage"] | null
+          id?: string
+          note?: string | null
+          opportunity_id: string
+          to_stage: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          from_stage?: Database["public"]["Enums"]["opportunity_stage"] | null
+          id?: string
+          note?: string | null
+          opportunity_id?: string
+          to_stage?: Database["public"]["Enums"]["opportunity_stage"]
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_stage_events_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "opportunity_stage_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           archived_at: string | null
@@ -1005,6 +1156,227 @@ export type Database = {
           },
         ]
       }
+      project_organizations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          organization_id: string
+          project_id: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id: string
+          project_id: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          project_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_organizations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_organizations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_organizations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_participants: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          organization_id: string | null
+          person_id: string | null
+          project_id: string
+          role: Database["public"]["Enums"]["participant_role"]
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          unidentified_description: string | null
+          updated_at: string
+          updated_by: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          project_id: string
+          role: Database["public"]["Enums"]["participant_role"]
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          unidentified_description?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          project_id?: string
+          role?: Database["public"]["Enums"]["participant_role"]
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          unidentified_description?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_participants_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_participants_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_participants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_participants_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          archived_at: string | null
+          blockers: string | null
+          created_at: string
+          created_by: string | null
+          duration_h: number | null
+          energy_mwh: number | null
+          evidence: string | null
+          id: string
+          location: string | null
+          name: string
+          need: string | null
+          next_milestone: string | null
+          power_mw: number | null
+          project_stage: string | null
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          updated_at: string
+          updated_by: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          blockers?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_h?: number | null
+          energy_mwh?: number | null
+          evidence?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          need?: string | null
+          next_milestone?: string | null
+          power_mw?: number | null
+          project_stage?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          blockers?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_h?: number | null
+          energy_mwh?: number | null
+          evidence?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          need?: string | null
+          next_milestone?: string | null
+          power_mw?: number | null
+          project_stage?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_documents: {
         Row: {
           archived_at: string | null
@@ -1076,9 +1448,11 @@ export type Database = {
           due_date: string | null
           id: string
           introduction_id: string | null
+          opportunity_id: string | null
           organization_id: string | null
           owner_user_id: string | null
           person_id: string | null
+          project_id: string | null
           review_at: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
@@ -1101,9 +1475,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           introduction_id?: string | null
+          opportunity_id?: string | null
           organization_id?: string | null
           owner_user_id?: string | null
           person_id?: string | null
+          project_id?: string | null
           review_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
@@ -1126,9 +1502,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           introduction_id?: string | null
+          opportunity_id?: string | null
           organization_id?: string | null
           owner_user_id?: string | null
           person_id?: string | null
+          project_id?: string | null
           review_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
@@ -1154,6 +1532,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -1165,6 +1550,13 @@ export type Database = {
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1292,8 +1684,10 @@ export type Database = {
       is_workspace_admin: { Args: { _ws: string }; Returns: boolean }
       is_workspace_member: { Args: { _ws: string }; Returns: boolean }
       normalize_text: { Args: { t: string }; Returns: string }
+      opp_ws: { Args: { _id: string }; Returns: string }
       org_ws: { Args: { _id: string }; Returns: string }
       person_ws: { Args: { _id: string }; Returns: string }
+      project_ws: { Args: { _id: string }; Returns: string }
       set_my_person: {
         Args: { _person: string; _ws: string }
         Returns: undefined
@@ -1323,6 +1717,21 @@ export type Database = {
         | "colleague"
         | "internal_referral"
         | "external_referral"
+        | "other"
+      opportunity_kind: "commercial" | "institutional"
+      opportunity_stage:
+        | "discovery"
+        | "validation"
+        | "proposal"
+        | "negotiation"
+        | "won"
+        | "lost"
+      participant_role:
+        | "buyer"
+        | "end_user"
+        | "economic_decider"
+        | "technical_evaluator"
+        | "internal_champion"
         | "other"
       source_type: "personal" | "ivlp" | "public_research" | "hypothesis"
       task_status: "open" | "waiting" | "done" | "cancelled"
@@ -1476,6 +1885,23 @@ export const Constants = {
         "colleague",
         "internal_referral",
         "external_referral",
+        "other",
+      ],
+      opportunity_kind: ["commercial", "institutional"],
+      opportunity_stage: [
+        "discovery",
+        "validation",
+        "proposal",
+        "negotiation",
+        "won",
+        "lost",
+      ],
+      participant_role: [
+        "buyer",
+        "end_user",
+        "economic_decider",
+        "technical_evaluator",
+        "internal_champion",
         "other",
       ],
       source_type: ["personal", "ivlp", "public_research", "hypothesis"],

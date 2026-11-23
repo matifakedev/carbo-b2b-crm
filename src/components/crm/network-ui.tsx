@@ -14,7 +14,7 @@ import { introLabel, useIntroOptions, useMembers, useOrgOptions, usePeopleOption
 
 const today = () => new Date().toISOString().slice(0, 10);
 const nn = (s: string) => (s.trim() ? s.trim() : null);
-function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
+export function invalidateAll(qc: ReturnType<typeof useQueryClient>) {
   for (const k of ["intros", "tasks", "convs", "links", "graph", "person", "org", "intro-opts", "history", "commission"]) qc.invalidateQueries({ queryKey: [k] });
 }
 const personLabel = (p: { full_name: string; archived_at: string | null }) => p.full_name + (p.archived_at ? " (archivada)" : "");
@@ -275,16 +275,16 @@ type ConvFull = { id: string; title: string; body: string | null; occurred_at: s
   conversation_links: { id: string; person_id: string | null; organization_id: string | null; introduction_id: string | null; people: { id: string; full_name: string } | null; organizations: { id: string; name: string } | null }[] };
 
 export function ConversationList({ ws, filter, allowNew, initialLinks, title = "Conversaciones y notas" }: {
-  ws: string; filter?: { personId?: string; orgId?: string }; allowNew?: boolean; initialLinks?: { people?: string[]; orgs?: string[] }; title?: string;
+  ws: string; filter?: { personId?: string; orgId?: string; projectId?: string }; allowNew?: boolean; initialLinks?: { people?: string[]; orgs?: string[] }; title?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const { data = [] } = useQuery({
-    queryKey: ["convs", ws, filter?.personId, filter?.orgId],
+    queryKey: ["convs", ws, filter?.personId, filter?.orgId, filter?.projectId],
     queryFn: async () => {
       let ids: string[] | null = null;
-      if (filter?.personId || filter?.orgId) {
-        const col = filter.personId ? "person_id" : "organization_id";
-        const { data: l } = await supabase.from("conversation_links").select("conversation_id").eq(col, (filter.personId ?? filter.orgId)!);
+      if (filter?.personId || filter?.orgId || filter?.projectId) {
+        const col = filter.personId ? "person_id" : filter.orgId ? "organization_id" : "project_id";
+        const { data: l } = await supabase.from("conversation_links").select("conversation_id").eq(col, (filter.personId ?? filter.orgId ?? filter.projectId)!);
         ids = [...new Set((l ?? []).map((x) => x.conversation_id))];
         if (ids.length === 0) return [];
       }
@@ -318,13 +318,14 @@ export function ConversationList({ ws, filter, allowNew, initialLinks, title = "
 
 /* ---------------- Tasks ---------------- */
 export type TaskRow = {
-  confirmed?: boolean;
+  project?: { id: string; name: string } | null; opp?: { id: string; title: string } | null;
+  confirmed?: boolean; project_id?: string | null; opportunity_id?: string | null;
   id: string; title: string; context: string | null; owner_user_id: string | null; status: string; due_date: string | null;
   waiting_on_person_id: string | null; waiting_since: string | null; review_at: string | null; person_id: string | null; organization_id: string | null;
   introduction_id: string | null; conversation_id: string | null; completed_by: string | null; completed_at: string | null; completion_note: string | null; archived_at: string | null;
   person: { id: string; full_name: string; archived_at: string | null } | null; waiting: { id: string; full_name: string } | null; org: { id: string; name: string } | null;
 };
-export const TASK_SELECT = "*, person:people!tasks_person_id_fkey(id, full_name, archived_at), waiting:people!tasks_waiting_on_person_id_fkey(id, full_name), org:organizations(id, name)";
+export const TASK_SELECT = "*, project:projects(id, name), opp:opportunities(id, title), person:people!tasks_person_id_fkey(id, full_name, archived_at), waiting:people!tasks_waiting_on_person_id_fkey(id, full_name), org:organizations(id, name)";
 
 export function TaskForm({ ws, initial, onDone }: { ws: string; initial?: Partial<TaskRow> | undefined; onDone: () => void }) {
   const qc = useQueryClient();
@@ -345,6 +346,7 @@ export function TaskForm({ ws, initial, onDone }: { ws: string; initial?: Partia
       title: d.title.trim(), context: nn(d.context), owner_user_id: d.owner_user_id || null, status: d.status as never, due_date: d.due_date || null,
       waiting_on_person_id: d.waiting_on_person_id || null, waiting_since: d.waiting_since || null, review_at: d.review_at || null,
       person_id: d.person_id || null, organization_id: d.organization_id || null, introduction_id: d.introduction_id || null,
+      project_id: initial?.project_id ?? null, opportunity_id: initial?.opportunity_id ?? null,
     };
     const { error } = initial?.id ? await supabase.from("tasks").update(row).eq("id", initial.id) : await supabase.from("tasks").insert({ ...row, workspace_id: ws });
     if (error) { toast.error(error.message); return; }
@@ -396,6 +398,8 @@ export function TaskItem({ t, ws, members }: { t: TaskRow; ws: string; members: 
           {t.review_at && <span className={reviewDue ? "font-bold text-warning" : ""}>Revisar {t.review_at}</span>}
           {t.person && <Link to="/personas/$id" params={{ id: t.person.id }} className="hover:text-primary">{personLabel(t.person)}</Link>}
           {t.org && <Link to="/organizaciones/$id" params={{ id: t.org.id }} className="hover:text-primary">{t.org.name}</Link>}
+          {t.project && <Link to="/proyectos/$id" params={{ id: t.project.id }} className="hover:text-primary">Proyecto: {t.project.name}</Link>}
+          {t.opp && <span>Oportunidad: {t.opp.title}</span>}
           {t.completed_at && <span className="text-success">Hecha {formatDateTime(t.completed_at)} · {t.completed_by ? members[t.completed_by] ?? "?" : ""}</span>}
         </div>
         {t.context && <div className="text-sm text-muted-foreground">{t.context}</div>}
@@ -411,17 +415,19 @@ export function TaskItem({ t, ws, members }: { t: TaskRow; ws: string; members: 
 }
 
 export function TaskList({ ws, filter, allowNew, defaults, title = "Tareas y pendientes" }: {
-  ws: string; filter?: { personId?: string; orgId?: string }; allowNew?: boolean; defaults?: Partial<TaskRow>; title?: string;
+  ws: string; filter?: { personId?: string; orgId?: string; projectId?: string; opportunityId?: string }; allowNew?: boolean; defaults?: Partial<TaskRow>; title?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const { data: memberList = [] } = useMembers(ws);
   const members = Object.fromEntries(memberList.map((m) => [m.user_id, m.name]));
   const { data = [] } = useQuery({
-    queryKey: ["tasks", ws, filter?.personId, filter?.orgId],
+    queryKey: ["tasks", ws, filter?.personId, filter?.orgId, filter?.projectId, filter?.opportunityId],
     queryFn: async () => {
       let q = supabase.from("tasks").select(TASK_SELECT).eq("workspace_id", ws).order("due_date", { ascending: true, nullsFirst: false });
       if (filter?.personId) q = q.or(`person_id.eq.${filter.personId},waiting_on_person_id.eq.${filter.personId}`);
       if (filter?.orgId) q = q.eq("organization_id", filter.orgId);
+      if (filter?.projectId) q = q.eq("project_id", filter.projectId);
+      if (filter?.opportunityId) q = q.eq("opportunity_id", filter.opportunityId);
       const { data, error } = await q; if (error) throw error;
       return data as unknown as TaskRow[];
     },
