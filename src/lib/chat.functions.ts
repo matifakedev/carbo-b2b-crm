@@ -10,7 +10,7 @@ type Sb = any;
 export type ActionCard = { id: string; summary: string; table: string; record_id: string; op: "create" | "update"; link: { type: string; id: string } | null };
 export type Question = { question: string; options: string[] };
 export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number };
-type Ctx = { sb: Sb; ws: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[] };
+type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[] };
 
 const LINK: Record<string, string> = { people: "person", organizations: "organization", projects: "project", tasks: "task" };
 
@@ -85,6 +85,31 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       const { data, error } = await sb.from("affiliations").insert({ workspace_id: c.ws, person_id: a["person_id"], organization_id: a["organization_id"], title: nn(a["title"]), source_type: "personal", source_detail: c.detail }).select("id, people(full_name), organizations(name)").single();
       if (error) return { error: error.message };
       await logAction(c, "affiliations", data.id, "create", `Vinculé a ${data.people?.full_name} con ${data.organizations?.name}${nn(a["title"]) ? ` como ${nn(a["title"])}` : ""}`, null, null, { type: "person", id: a["person_id"] as string });
+      return { created: true, id: data.id };
+    }
+    case "add_person_link": {
+      if (!(await inWs(c, "people", a["to_person_id"]))) return { error: "persona destino no encontrada" };
+      let from = nn(a["from_person_id"]);
+      if (!from) {
+        const { data: m } = await sb.from("workspace_members").select("person_id, display_name, email").eq("workspace_id", c.ws).eq("user_id", c.uid).single();
+        from = m?.person_id ?? null;
+        if (!from) {
+          const name = nn(m?.display_name) ?? nn(m?.email);
+          if (!name) return { error: "No tengo tu nombre para crear tu ficha; pedile al usuario que se asocie en Equipo." };
+          const { data: me, error } = await sb.from("people").insert({ workspace_id: c.ws, full_name: name, source_type: "personal", source_detail: "Ficha del miembro del equipo" }).select("id").single();
+          if (error) return { error: error.message };
+          const { error: e2 } = await sb.rpc("set_my_person", { _ws: c.ws, _person: me.id });
+          if (e2) return { error: e2.message };
+          await logAction(c, "people", me.id, "create", `Creé tu ficha (${name}) y la asocié a tu usuario`);
+          from = me.id as string;
+        }
+      } else if (!(await inWs(c, "people", from))) return { error: "persona origen no encontrada" };
+      if (from === a["to_person_id"]) return { error: "misma persona" };
+      const { data: ex } = await sb.from("person_links").select("id").eq("workspace_id", c.ws).is("archived_at", null).or(`and(from_person_id.eq.${from},to_person_id.eq.${a["to_person_id"]}),and(from_person_id.eq.${a["to_person_id"]},to_person_id.eq.${from})`).maybeSingle();
+      if (ex) return { exists: true, id: ex.id };
+      const { data, error } = await sb.from("person_links").insert({ workspace_id: c.ws, from_person_id: from, to_person_id: a["to_person_id"], kind: a["kind"], context: nn(a["context"]), source_type: "personal", source_detail: c.detail }).select("id, to:to_person_id(full_name), fr:from_person_id(full_name)").single();
+      if (error) return { error: error.message };
+      await logAction(c, "person_links", data.id, "create", `Vinculé en la red a ${data.fr?.full_name} con ${data.to?.full_name}`, null, null, { type: "person", id: a["to_person_id"] as string });
       return { created: true, id: data.id };
     }
     case "add_contact": {
@@ -240,7 +265,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
       role: m.role, content: m.role === "assistant" ? [m.content, m.parts?.actions?.length ? `[Acciones realizadas: ${m.parts.actions.map((x) => `${x.summary} (${x.table}:${x.record_id})`).join("; ")}]` : "", m.parts?.question ? `[Pregunté: ${m.parts.question.question}]` : ""].filter(Boolean).join("\n") : m.content,
     }));
 
-    const c: Ctx = { sb, ws: data.workspace_id, thread, userText, actions: [], question: null, research: [], detail: `Brain · chat ${thread.slice(0, 8)}` };
+    const c: Ctx = { sb, ws: data.workspace_id, uid: context.userId, thread, userText, actions: [], question: null, research: [], detail: `Brain · chat ${thread.slice(0, 8)}` };
     let text = ""; let failure: string | null = null;
     if (!process.env["LOVABLE_API_KEY"]) failure = "El Brain no está configurado.";
     else {

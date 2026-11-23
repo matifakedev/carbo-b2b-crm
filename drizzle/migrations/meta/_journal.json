@@ -43,6 +43,13 @@
       "when": 1795470935085,
       "tag": "0005_brain_chat",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795474433552,
+      "tag": "0006_undo_person_links",
+      "breakpoints": true
     }
   ]
 }

@@ -57,6 +57,8 @@ export const TOOLS = [
   fn("create_organization", "Crea una organización (si existe una con nombre similar devuelve candidatos y no crea, salvo force_new).", {
     name: { type: "string" }, location: s("ubicación"), website: s("sitio web"), description: s("descripción"), force_new: { type: "boolean" } }),
   fn("add_affiliation", "Vincula una persona con una organización (cargo opcional).", { person_id: { type: "string" }, organization_id: { type: "string" }, title: s("cargo") }),
+  fn("add_person_link", "Crea un vínculo persona-persona en la red (aparece en el mapa). Usalo cuando el usuario dice que conoce a alguien ('tengo un contacto', 'conozco a', 'mi amigo'): from_person_id=null significa el usuario que escribe. No lo uses para relaciones deducidas de research o de pertenecer a la misma organización.", {
+    from_person_id: s("persona origen; null = el usuario"), to_person_id: { type: "string" }, kind: { type: "string", enum: ["knows", "colleague", "internal_referral", "external_referral", "other"] }, context: s("cómo se conocen, según el usuario") }),
   fn("add_contact", "Agrega email o teléfono a una persona.", { person_id: { type: "string" }, kind: { type: "string", enum: ["email", "phone", "linkedin", "other"] }, value: { type: "string" } }),
   fn("create_task", "Crea una tarea. due_date en formato YYYY-MM-DD solo si el usuario dio una fecha. owner_user_id debe ser un id de la lista de miembros.", {
     title: { type: "string" }, context: s("contexto"), due_date: s("YYYY-MM-DD"), owner_user_id: s("id de miembro"),
@@ -123,6 +125,7 @@ Reglas:
 - Cuando pegan un email/notas/transcripción, guardalo literal con log_conversation y vinculalo.
 - Fechas relativas ("el jueves") convertilas a YYYY-MM-DD usando la fecha de hoy; si es ambigua, preguntá.
 - Al final respondé breve en español rioplatense: qué hiciste, qué respondés y qué falta (datos incompletos detectados: email, cargo, evaluador técnico, etc.). Al consultar, distinguí hechos registrados de inferencias.
+- Si el usuario dice que conoce a alguien o que es su contacto, además de crear la persona usá add_person_link (from_person_id=null) para que quede en su red.
 - Primero identificá la intención principal. Si piden investigar una empresa/asociación, qué intros puede hacer alguien o cómo vender, eso es research + estrategia, no solo registro.
 - Orden para research: registrá lo aportado por el usuario → search_records y get_context → si no hay research reciente, find_organization_candidates → si hay homónimos y el contexto no alcanza, ask_user con candidatos concretos (nombre — dominio) → creá/actualizá la organización (con website elegido) → research_organization. Nunca pidas una URL que podés buscar.
 - Nunca busques en la web ni afirmes nada sobre personas mencionadas por el usuario: solo lo que el usuario dijo.
