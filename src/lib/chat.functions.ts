@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { RECORD_TABLES, ROLE_VALUES, TOOLS, pickAllowed, stripInventedNumbers, systemPrompt, validIsoDate, type RecordType } from "@/lib/chat-agent";
+import { RECORD_TABLES, ROLE_VALUES, TOOLS, queryNamesPerson, researchForChat, pickAllowed, stripInventedNumbers, systemPrompt, validIsoDate, type RecordType } from "@/lib/chat-agent";
 
 const MODEL = "openai/gpt-6-astra" as const;
 const MAX_STEPS = 10;
@@ -9,7 +9,8 @@ const MAX_STEPS = 10;
 type Sb = any;
 export type ActionCard = { id: string; summary: string; table: string; record_id: string; op: "create" | "update"; link: { type: string; id: string } | null };
 export type Question = { question: string; options: string[] };
-type Ctx = { sb: Sb; ws: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string };
+export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number };
+type Ctx = { sb: Sb; ws: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[] };
 
 const LINK: Record<string, string> = { people: "person", organizations: "organization", projects: "project", tasks: "task" };
 
@@ -158,6 +159,40 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       await logAction(c, "project_participants", data.id, "create", `Agregué un participante (${a["role"]}) al proyecto`, null, null, { type: "project", id: a["project_id"] as string });
       return { created: true };
     }
+    case "get_context": {
+      const q = String(a["query"] ?? "").trim().slice(0, 100); const like = `%${q.replace(/[%_,()]/g, " ")}%`;
+      const orgId = (await inWs(c, "organizations", a["organization_id"])) ? String(a["organization_id"]) : null;
+      const [conv, runs, caps] = await Promise.all([
+        q ? sb.from("conversations").select("id, title, occurred_at, body").eq("workspace_id", c.ws).is("archived_at", null).or(`title.ilike.${like},body.ilike.${like}`).limit(8) : { data: [] },
+        (orgId ? sb.from("research_runs").select("id, status, focus, created_at, intro_draft, organization_id").eq("workspace_id", c.ws).eq("organization_id", orgId) : sb.from("research_runs").select("id, status, focus, created_at, intro_draft, organization_id, organizations!inner(name)").eq("workspace_id", c.ws).ilike("organizations.name", like)).order("created_at", { ascending: false }).limit(3),
+        sb.from("carbo_capabilities").select("title, applications, limits, communicable").eq("workspace_id", c.ws).eq("status", "approved").is("archived_at", null).limit(20),
+      ]);
+      const runIds = (runs.data ?? []).map((r: { id: string }) => r.id);
+      const f = runIds.length ? (await sb.from("research_findings").select("run_id, statement, condition, url, published_at, category, quote, fetched_at").in("run_id", runIds).limit(40)).data ?? [] : [];
+      return { conversations: (conv.data ?? []).map((x: { body: string | null }) => ({ ...x, body: (x.body ?? "").slice(0, 600) })), research_runs: runs.data ?? [], findings: researchForChat(f), approved_capabilities: caps.data ?? [] };
+    }
+    case "find_organization_candidates": {
+      const q = String(a["query"] ?? "").trim().slice(0, 150); if (!q) return { error: "consulta vacía" };
+      const names = [...(await sb.from("people").select("full_name").eq("workspace_id", c.ws).limit(500)).data ?? []].map((x: { full_name: string }) => x.full_name);
+      if (queryNamesPerson(q, names)) return { error: "No se buscan personas en la web. Buscá solo la organización." };
+      const { findOrgCandidates } = await import("@/lib/research.server");
+      return findOrgCandidates(q);
+    }
+    case "research_organization": {
+      if (c.research.length) return { error: "Ya se ejecutó un research en este turno." };
+      if (!(await inWs(c, "organizations", a["organization_id"]))) return { error: "organización inexistente: creala o buscala primero" };
+      const orgId = String(a["organization_id"]);
+      const { data: org } = await sb.from("organizations").select("name").eq("id", orgId).single();
+      let urls: string[] = []; const w = nn(a["website"]);
+      if (w) { try { const u = new URL(w); if (/^https?:$/.test(u.protocol)) urls = [u.toString()]; } catch { /* ignore */ } }
+      const { executeResearch } = await import("@/lib/research.server");
+      const r = await executeResearch(sb, { workspace_id: c.ws, organization_id: orgId, focus: (nn(a["focus"]) ?? "").slice(0, 200), web_search: true, urls });
+      const { data: run } = await sb.from("research_runs").select("fit, intro_draft, extraction_id").eq("id", r.run_id).single();
+      const { data: f } = await sb.from("research_findings").select("statement, condition, url, published_at, category, quote, fetched_at").eq("run_id", r.run_id).order("position");
+      const proposals = run?.extraction_id ? (await sb.from("brain_proposals").select("id", { count: "exact", head: true }).eq("extraction_id", run.extraction_id)).count ?? 0 : 0;
+      c.research.push({ run_id: r.run_id, organization_id: orgId, organization: org?.name ?? "", status: r.status, errors: r.errors, proposals });
+      return { status: r.status, errors: r.errors, findings: researchForChat(f ?? []), fit: run?.fit ?? null, intro_draft: run?.intro_draft ?? null, proposals_pending_review: proposals };
+    }
     case "ask_user": {
       c.question = { question: String(a["question"] ?? ""), options: ((a["options"] as string[]) ?? []).slice(0, 6) };
       return { asked: true };
@@ -205,7 +240,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
       role: m.role, content: m.role === "assistant" ? [m.content, m.parts?.actions?.length ? `[Acciones realizadas: ${m.parts.actions.map((x) => `${x.summary} (${x.table}:${x.record_id})`).join("; ")}]` : "", m.parts?.question ? `[Pregunté: ${m.parts.question.question}]` : ""].filter(Boolean).join("\n") : m.content,
     }));
 
-    const c: Ctx = { sb, ws: data.workspace_id, thread, userText, actions: [], question: null, detail: `Brain · chat ${thread.slice(0, 8)}` };
+    const c: Ctx = { sb, ws: data.workspace_id, thread, userText, actions: [], question: null, research: [], detail: `Brain · chat ${thread.slice(0, 8)}` };
     let text = ""; let failure: string | null = null;
     if (!process.env["LOVABLE_API_KEY"]) failure = "El Brain no está configurado.";
     else {
@@ -234,7 +269,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
     }
     if (failure) text = `${failure}${text ? `\n\n${text}` : ""}`;
     if (!text) text = c.actions.length ? "Listo." : "No pude generar una respuesta.";
-    const parts = { actions: c.actions, question: c.question, error: failure };
+    const parts = { actions: c.actions, question: c.question, error: failure, research: c.research };
     const { error: e2 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "assistant", content: text, parts });
     if (e2) throw new Error(e2.message);
     await sb.from("brain_threads").update({ updated_at: new Date().toISOString() }).eq("id", thread);

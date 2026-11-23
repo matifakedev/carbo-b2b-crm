@@ -4,11 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { sendBrainMessage, type ActionCard, type Question } from "@/lib/chat.functions";
+import { sendBrainMessage, type ActionCard, type Question, type ResearchCard } from "@/lib/chat.functions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string; parts: { actions?: ActionCard[]; question?: Question | null; error?: string | null } };
+type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string; parts: { actions?: ActionCard[]; question?: Question | null; error?: string | null; research?: ResearchCard[] } };
 
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
@@ -67,6 +67,16 @@ function MessageView({ m }: { m: Msg }) {
     <div className="max-w-[90%] space-y-3">
       <div className="label-mono text-primary">Brain</div>
       <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
+      {m.parts?.research?.map((r) => (
+        <div key={r.run_id} className="rounded-sm border border-border bg-card p-3 text-sm">
+          <div className="label-mono">Research · {r.organization} · {r.status === "done" ? "completo" : r.status === "not_configured" ? "búsqueda web no configurada" : r.status === "partial" ? "parcial" : "falló"}</div>
+          {r.errors.length > 0 && <div className="mt-1 text-xs text-destructive">{r.errors.join(" · ")}</div>}
+          <div className="mt-2 flex flex-wrap gap-3 text-xs">
+            <Link to="/organizaciones/$id" params={{ id: r.organization_id }} className="text-primary underline">Ver fuentes y hallazgos</Link>
+            {r.proposals > 0 && <span>{r.proposals} propuestas para revisar en la ficha</span>}
+          </div>
+        </div>
+      ))}
       {m.parts?.actions?.length ? <ActionList actions={m.parts.actions} /> : null}
       {m.parts?.question && m.parts.question.question !== m.content && <div className="rounded-sm border border-mint bg-mint/10 p-3 text-sm"><span className="label-mono">Pregunta</span><div>{m.parts.question.question}</div></div>}
     </div>
