@@ -111,6 +111,197 @@ export type Database = {
           },
         ]
       }
+      brain_extractions: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          model: string | null
+          source_document_id: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          source_document_id: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          source_document_id?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_extractions_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_extractions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_proposals: {
+        Row: {
+          ambiguity: string | null
+          created_at: string
+          created_by: string | null
+          created_record_id: string | null
+          created_record_type: string | null
+          decided_at: string | null
+          decided_by: string | null
+          evidence: string | null
+          extraction_id: string
+          final: Json | null
+          id: string
+          kind: string
+          position: number
+          proposed: Json
+          status: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          ambiguity?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_record_id?: string | null
+          created_record_type?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: string | null
+          extraction_id: string
+          final?: Json | null
+          id?: string
+          kind: string
+          position?: number
+          proposed: Json
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          ambiguity?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_record_id?: string | null
+          created_record_type?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          evidence?: string | null
+          extraction_id?: string
+          final?: Json | null
+          id?: string
+          kind?: string
+          position?: number
+          proposed?: Json
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_proposals_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "brain_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_proposals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_queries: {
+        Row: {
+          answer: Json | null
+          cited: Json
+          created_at: string
+          created_by: string | null
+          focus_id: string
+          focus_type: string
+          id: string
+          model: string | null
+          question: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          answer?: Json | null
+          cited?: Json
+          created_at?: string
+          created_by?: string | null
+          focus_id: string
+          focus_type: string
+          id?: string
+          model?: string | null
+          question: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          answer?: Json | null
+          cited?: Json
+          created_at?: string
+          created_by?: string | null
+          focus_id?: string
+          focus_type?: string
+          id?: string
+          model?: string | null
+          question?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_queries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_interest: {
         Row: {
           conditions: string | null
@@ -467,6 +658,93 @@ export type Database = {
           },
         ]
       }
+      needs: {
+        Row: {
+          archived_at: string | null
+          confirmed: boolean
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          evidence: string | null
+          id: string
+          organization_id: string | null
+          person_id: string | null
+          source_document_id: string | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          confirmed?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          evidence?: string | null
+          id?: string
+          organization_id?: string | null
+          person_id?: string | null
+          source_document_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          confirmed?: boolean
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          evidence?: string | null
+          id?: string
+          organization_id?: string | null
+          person_id?: string | null
+          source_document_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "needs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "needs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           archived_at: string | null
@@ -727,12 +1005,70 @@ export type Database = {
           },
         ]
       }
+      source_documents: {
+        Row: {
+          archived_at: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          original_text: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          original_text: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          original_text?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_documents_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_documents_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           archived_at: string | null
           completed_at: string | null
           completed_by: string | null
           completion_note: string | null
+          confirmed: boolean
           context: string | null
           conversation_id: string | null
           created_at: string
@@ -757,6 +1093,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completion_note?: string | null
+          confirmed?: boolean
           context?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -781,6 +1118,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completion_note?: string | null
+          confirmed?: boolean
           context?: string | null
           conversation_id?: string | null
           created_at?: string
@@ -916,6 +1254,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      confirm_extraction: {
+        Args: { _decisions: Json; _extraction: string }
+        Returns: Json
+      }
       conv_ws: { Args: { _id: string }; Returns: string }
       find_org_duplicates: {
         Args: { _exclude?: string; _name: string; _ws: string }

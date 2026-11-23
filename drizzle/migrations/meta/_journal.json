@@ -15,6 +15,13 @@
       "when": 1795467117468,
       "tag": "0001_network_and_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795468113211,
+      "tag": "0002_brain_contextual",
+      "breakpoints": true
     }
   ]
 }

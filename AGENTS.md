@@ -38,3 +38,5 @@ use the editor.
 - Network edges come from `person_links`, `introductions` (each event kept separately) and `affiliations`; the graph is built client-side in `src/lib/network.ts` and traversed with simple paths (no repeated node). Why: multiple routes to one person without duplicating identities, cycles safe.
 - Unidentified introduction targets are stored as `target_description`, never as placeholder people.
 - Conversations are single rows linked through `conversation_links` (person/org/introduction). Why: one conversation, many participants, no duplicates.
+- Brain (LLM) calls run only in `src/lib/brain.functions.ts` (server, `requireSupabaseAuth`, user RLS client). Context comes only from confirmed records linked to the focus; pure rules live in `src/lib/brain.ts`. Why: workspace isolation and drafts never treated as facts.
+- Pasted text is kept verbatim in `source_documents`; Brain output becomes `brain_proposals` and reaches CRM tables only through the `confirm_extraction` SQL function, which skips already-decided proposals. Why: human review, provenance, no duplicates on retry.

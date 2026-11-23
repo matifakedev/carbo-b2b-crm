@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { BrainToggle } from "@/components/crm/BrainPanel";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -198,6 +199,7 @@ export function IntroCard({ i, members, onEdit }: { i: IntroFull; members: Recor
         {onEdit && <button className="text-primary hover:underline" onClick={onEdit}>Editar</button>}
         <button className="text-muted-foreground hover:underline" onClick={toggle}>{i.archived_at ? "Restaurar" : "Archivar"}</button>
       </div>
+      <div className="mt-2"><BrainToggle ws={i.workspace_id} focusType="introduction" focusId={i.id} /></div>
     </div>
   );
 }
@@ -293,7 +295,7 @@ export function ConversationList({ ws, filter, allowNew, initialLinks, title = "
     },
   });
   return (
-    <Section title={title} action={allowNew && !adding && <Button size="sm" variant="outline" onClick={() => setAdding(true)}>Nueva conversación</Button>}>
+    <Section title={title} action={allowNew && !adding && <div className="flex gap-2"><Link to="/conversaciones/importar" className="inline-flex h-9 items-center rounded-sm border border-input px-3 text-sm font-semibold hover:text-primary">Pegar email o notas</Link><Button size="sm" variant="outline" onClick={() => setAdding(true)}>Nueva conversación</Button></div>}>
       {adding && <div className="mb-4"><ConversationForm ws={ws} initialLinks={initialLinks} onDone={() => setAdding(false)} /></div>}
       <ul className="divide-y divide-border border-y border-border">
         {data.map((c) => (
@@ -305,6 +307,7 @@ export function ConversationList({ ws, filter, allowNew, initialLinks, title = "
                 : l.organizations ? <Link key={l.id} to="/organizaciones/$id" params={{ id: l.organizations.id }} className="border border-border px-2 py-0.5 font-semibold hover:text-primary">{l.organizations.name}</Link>
                 : <span key={l.id} className="border border-dashed border-border-strong px-2 py-0.5 font-mono">Introducción vinculada</span>)}
             </div>
+            <div className="mt-2"><BrainToggle ws={ws} focusType="conversation" focusId={c.id} /></div>
           </li>
         ))}
         {data.length === 0 && <li className="py-4 text-sm text-muted-foreground">Sin conversaciones registradas.</li>}
@@ -315,6 +318,7 @@ export function ConversationList({ ws, filter, allowNew, initialLinks, title = "
 
 /* ---------------- Tasks ---------------- */
 export type TaskRow = {
+  confirmed?: boolean;
   id: string; title: string; context: string | null; owner_user_id: string | null; status: string; due_date: string | null;
   waiting_on_person_id: string | null; waiting_since: string | null; review_at: string | null; person_id: string | null; organization_id: string | null;
   introduction_id: string | null; conversation_id: string | null; completed_by: string | null; completed_at: string | null; completion_note: string | null; archived_at: string | null;
@@ -384,7 +388,7 @@ export function TaskItem({ t, ws, members }: { t: TaskRow; ws: string; members: 
   return (
     <li className="flex flex-wrap items-start justify-between gap-4 py-3">
       <div className="min-w-0">
-        <div className={`font-medium ${t.status === "done" || t.status === "cancelled" ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
+        <div className={`font-medium ${t.status === "done" || t.status === "cancelled" ? "line-through text-muted-foreground" : ""}`}>{t.title} {t.confirmed === false && <Tag tone="warning">Sin confirmar</Tag>}</div>
         <div className="mt-1 flex flex-wrap gap-x-4 font-mono text-xs text-muted-foreground">
           <span>{t.owner_user_id ? members[t.owner_user_id] ?? "?" : "Sin responsable"}</span>
           <span className={overdue ? "font-bold text-destructive" : ""}>{t.due_date ? `Vence ${t.due_date}${overdue ? " · vencida" : ""}` : "Sin fecha"}</span>

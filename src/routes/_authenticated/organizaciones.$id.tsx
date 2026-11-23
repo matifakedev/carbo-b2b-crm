@@ -1,3 +1,4 @@
+import { BrainToggle } from "@/components/crm/BrainPanel";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
@@ -79,6 +80,7 @@ function OrgDetail() {
               {o.affiliations.filter((a) => !a.archived_at).length === 0 && <li className="py-6 text-sm text-muted-foreground">Sin personas afiliadas. Se agregan desde la ficha de cada persona.</li>}
             </ul>
           </section>
+          <BrainToggle ws={o.workspace_id} focusType="organization" focusId={id} />
           <IntroList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ target_org_id: id }} emptyText="Ninguna introducción apunta a esta organización." />
           <TaskList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ organization_id: id }} />
           <ConversationList ws={o.workspace_id} filter={{ orgId: id }} allowNew initialLinks={{ orgs: [id] }} />

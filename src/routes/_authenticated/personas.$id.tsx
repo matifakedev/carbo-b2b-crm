@@ -11,6 +11,7 @@ import { AuditFooter, SourceTag, Tag, VerificationTag } from "@/components/crm/f
 import { CONTACT_LABELS, PERSON_ROLES, describeTenure, type ContactKind, type SourceType, type VerificationStatus } from "@/lib/crm";
 import { personPayload, syncContacts } from "@/lib/people";
 import { ConversationList, IntroList, PersonLinks, TaskList } from "@/components/crm/network-ui";
+import { BrainToggle } from "@/components/crm/BrainPanel";
 import { ArrivalRoutes, CommissionInterest, History } from "@/components/crm/person-extras";
 
 export const Route = createFileRoute("/_authenticated/personas/$id")({
@@ -166,6 +167,7 @@ function PersonDetail() {
           </section>
           <ArrivalRoutes ws={p.workspace_id} personId={id} />
           <PersonLinks ws={p.workspace_id} personId={id} />
+          <BrainToggle ws={p.workspace_id} focusType="person" focusId={id} />
           <IntroList ws={p.workspace_id} filter={{ personId: id }} allowNew defaults={{ introducer_person_id: id }} emptyText="Esta persona no participa en introducciones." />
           <TaskList ws={p.workspace_id} filter={{ personId: id }} allowNew defaults={{ person_id: id }} />
           <ConversationList ws={p.workspace_id} filter={{ personId: id }} allowNew initialLinks={{ people: [id] }} />
