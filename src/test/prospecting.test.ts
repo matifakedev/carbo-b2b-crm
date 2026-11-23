@@ -10,24 +10,32 @@ const base: RawCandidate = { company: "Acme Data Centers", linkage: "Miembro inv
   signal: "Nuevo campus", signal_quote: "announced a new 40 acre campus under construction in Round Rock", signal_source: 1, signal_kind: "facility",
   hypothesis: "Respaldo", to_validate: "Consumo", target_role: "Director de energía", intro_request: "¿Sabés quién...?", relevance: "high" };
 
+const CAPS = [{ id: "cap1", title: "Almacenamiento de larga duración", limits: "Proyectos desde 10 MWh" }];
+
 describe("prospecting rules", () => {
   it("drops irrelevant initial results and does not pad to five", () => {
-    const c = finalizeCandidates([base, { ...base, company: "Bakery", relevance: "irrelevant", linkage_source: 2, signal_source: 2 }], src, { hasApprovedCapabilities: true, max: 5 });
+    const c = finalizeCandidates([base, { ...base, company: "Bakery", relevance: "irrelevant", linkage_source: 2, signal_source: 2 }], src, { approved: CAPS, max: 5 });
     expect(c.map((x) => x.company)).toEqual(["Acme Data Centers"]);
     expect(assessSufficiency(c, 5).gaps.join(" ")).toContain("Solo 1");
   });
-  it("without approved capabilities nothing is qualified", () => {
-    const [c] = finalizeCandidates([base], src, { hasApprovedCapabilities: false, max: 5 });
-    expect(c!.tier).toBe("exploratory");
-    expect(finalizeCandidates([base], src, { hasApprovedCapabilities: true, max: 5 })[0]!.tier).toBe("qualified");
+  it("linkage + expansion is documented, not qualified, even with approved capabilities", () => {
+    expect(finalizeCandidates([base], src, { approved: CAPS, max: 5 })[0]!.tier).toBe("documented");
+    expect(finalizeCandidates([base], src, { approved: [], max: 5 })[0]!.tier).toBe("documented");
+  });
+  it("qualified requires documented need + matching approved capability + no limit conflict", () => {
+    const q: RawCandidate = { ...base, need: "Respaldo", need_quote: "announced a new 40 acre campus under construction in Round Rock", need_source: 1, capability_id: "cap1", fit_reason: "Campus requiere respaldo de muchas horas", limits_conflict: false };
+    expect(finalizeCandidates([q], src, { approved: CAPS, max: 5 })[0]!.tier).toBe("qualified");
+    expect(finalizeCandidates([{ ...q, limits_conflict: true }], src, { approved: CAPS, max: 5 })[0]!.tier).toBe("documented");
+    expect(finalizeCandidates([{ ...q, capability_id: "no-aprobada" }], src, { approved: CAPS, max: 5 })[0]!.tier).toBe("documented");
+    expect(finalizeCandidates([{ ...q, need_quote: "cita inventada que no está en ninguna fuente" }], src, { approved: CAPS, max: 5 })[0]!.tier).toBe("documented");
   });
   it("unverifiable membership is flagged and never qualified", () => {
-    const [c] = finalizeCandidates([{ ...base, linkage_quote: "member of the chamber board of directors since forever" }], src, { hasApprovedCapabilities: true, max: 5 });
+    const [c] = finalizeCandidates([{ ...base, linkage_quote: "member of the chamber board of directors since forever" }], src, { approved: CAPS, max: 5 });
     expect(c!.linkage.verified).toBe(false);
     expect(c!.tier).toBe("exploratory");
   });
   it("candidates with nothing documented are excluded", () => {
-    expect(finalizeCandidates([{ ...base, linkage_quote: "invented quote text not in source", signal_quote: "", signal_kind: "none" }], src, { hasApprovedCapabilities: true, max: 5 })).toHaveLength(0);
+    expect(finalizeCandidates([{ ...base, linkage_quote: "invented quote text not in source", signal_quote: "", signal_kind: "none" }], src, { approved: CAPS, max: 5 })).toHaveLength(0);
     expect(assessSufficiency([], 5).sufficiency).toBe("insufficient");
   });
   it("budget exhaustion is recorded and caps are enforced", () => {

@@ -4,12 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { sendBrainMessage, type ActionCard, type Question, type ResearchCard } from "@/lib/chat.functions";
+import { sendBrainMessage, type BatchCard, type ActionCard, type Question, type ResearchCard } from "@/lib/chat.functions";
 import { Button } from "@/components/ui/button";
 import { Markdown, ProspectCard } from "@/components/crm/ProspectCard";
 import { Textarea } from "@/components/ui/textarea";
 
-type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string; parts: { actions?: ActionCard[]; question?: Question | null; error?: string | null; research?: ResearchCard[] } };
+type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string; parts: { actions?: ActionCard[]; question?: Question | null; error?: string | null; research?: ResearchCard[]; batch?: BatchCard | null } };
 
 export function useThreadMessages(threadId: string | null) {
   return useQuery({
@@ -82,6 +82,7 @@ function MessageView({ m }: { m: Msg }) {
           </div>
         </div>
       ))}
+      {m.parts?.batch ? <BatchView b={m.parts.batch} /> : null}
       {m.parts?.actions?.length ? <ActionList actions={m.parts.actions} /> : null}
       {m.parts?.question && m.parts.question.question !== m.content && <div className="rounded-sm border border-mint bg-mint/10 p-3 text-sm"><span className="label-mono">Pregunta</span><div>{m.parts.question.question}</div></div>}
     </div>
@@ -160,4 +161,56 @@ export function reportUndo(data: unknown) {
   const kept = r.kept ?? [];
   if (!kept.length) { toast.success(`Deshecho${r.reverted?.length ? ` (${r.reverted.length} cambios)` : ""}`); return; }
   toast.warning(`Deshice ${r.reverted?.length ?? 0} cambios y conservé ${kept.length}`, { description: kept.map((k) => `${k.summary}: ${k.reason.replace(/se usa en (\w+)/, (_, t: string) => `se usa en ${TABLE_ES[t] ?? t}`)}`).join(" · "), duration: 12000 });
+}
+
+/** Reviewable batch inside the chat: accept / discard per item or all; correct or associate opens the full review. */
+function BatchView({ b }: { b: BatchCard }) {
+  const qc = useQueryClient();
+  const { data: live = [] } = useQuery({
+    queryKey: ["brain-batch", b.extraction_id],
+    queryFn: async () => (await supabase.from("brain_proposals").select("id, status").eq("extraction_id", b.extraction_id)).data ?? [],
+  });
+  const status = (id: string) => live.find((x) => x.id === id)?.status ?? "pending";
+  const pending = b.proposals.filter((p) => status(p.id) === "pending");
+  async function decide(ids: string[], action: "accept" | "reject") {
+    if (!ids.length) return;
+    const { data, error } = await supabase.rpc("confirm_extraction", { _extraction: b.extraction_id, _decisions: ids.map((proposal_id) => ({ proposal_id, action })) });
+    if (error) { toast.error(`No se aplicó: ${error.message}`); return; }
+    const r = data as { created: number; rejected: number; pending: number };
+    toast.success(`${r.created} aplicadas · ${r.rejected} descartadas · ${r.pending} pendientes`);
+    qc.invalidateQueries();
+  }
+  const ST: Record<string, string> = { pending: "pendiente", accepted: "aceptada", corrected: "corregida", rejected: "descartada" };
+  return (
+    <section aria-label={`Lote para revisar: ${b.title}`} className="space-y-2 border-l-2 border-mint pl-3 text-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="label-mono">Lote para revisar · {b.proposals.length} propuestas</span>
+        <Link to="/conversaciones/revision/$id" params={{ id: b.extraction_id }} className="text-xs text-primary underline">Corregir o asociar a registros existentes</Link>
+      </div>
+      {!b.proposals.length && <p className="text-muted-foreground">No encontré nada con respaldo suficiente para proponer.</p>}
+      <ul className="space-y-2">
+        {b.proposals.map((p) => (
+          <li key={p.id} className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div>{p.summary}</div>
+              {p.evidence && <q className="block text-xs text-muted-foreground">{p.evidence}</q>}
+              {p.ambiguity && <div className="text-xs text-destructive">Duda: {p.ambiguity}</div>}
+            </div>
+            {status(p.id) === "pending" ? (
+              <div className="flex gap-1">
+                <Button size="sm" variant="outline" onClick={() => void decide([p.id], "accept")}>Aceptar</Button>
+                <Button size="sm" variant="ghost" onClick={() => void decide([p.id], "reject")}>Descartar</Button>
+              </div>
+            ) : <span className="label-mono text-muted-foreground">{ST[status(p.id)] ?? status(p.id)}</span>}
+          </li>
+        ))}
+      </ul>
+      {pending.length > 1 && (
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => void decide(pending.map((p) => p.id), "accept")}>Aceptar las {pending.length} pendientes</Button>
+          <Button size="sm" variant="ghost" onClick={() => void decide(pending.map((p) => p.id), "reject")}>Descartar todas</Button>
+        </div>
+      )}
+    </section>
+  );
 }

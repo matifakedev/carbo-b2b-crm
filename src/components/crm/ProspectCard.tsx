@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { EXECUTION_LABEL, SUFFICIENCY_LABEL, type ProspectView } from "@/lib/prospecting";
+import { EXECUTION_LABEL, SUFFICIENCY_LABEL, TIER_LABEL, type ProspectView } from "@/lib/prospecting";
 
 /** Markdown without raw HTML (react-markdown escapes HTML by default; skipHtml drops it). */
 export function Markdown({ text }: { text: string }) {
@@ -29,10 +29,13 @@ export function ProspectCard({ p }: { p: ProspectView }) {
       {p.notices?.length ? <div className="text-xs text-muted-foreground">{p.notices.join(" ")}</div> : null}
       {p.candidates.map((c) => (
         <details key={c.company} className="rounded-sm border border-border p-2">
-          <summary className="cursor-pointer text-sm"><span className="font-semibold">{c.company}</span> <span className="label-mono ml-2">{c.tier === "qualified" ? "Oportunidad calificada" : "Exploratoria"}</span> <span className="text-muted-foreground">· {c.target_role}</span></summary>
+          <summary className="cursor-pointer text-sm"><span className="font-semibold">{c.company}</span> <span className="label-mono ml-2">{TIER_LABEL[c.tier] ?? "Candidata para explorar"}</span> <span className="text-muted-foreground">· {c.target_role}</span></summary>
           <dl className="mt-2 space-y-1.5 text-xs">
             <div><dt className="label-mono">Vinculación {c.linkage.verified ? "documentada" : "no verificada"}</dt><dd>{c.linkage.text} — <Src url={c.linkage.url} />{c.linkage.quote && <q className="block text-muted-foreground">{c.linkage.quote}</q>}</dd></div>
             <div><dt className="label-mono">Señal comercial {c.signal.verified ? "documentada" : "sin documentar"}</dt><dd>{c.signal.text} — <Src url={c.signal.url} date={c.signal.date} />{c.signal.quote && <q className="block text-muted-foreground">{c.signal.quote}</q>}</dd></div>
+            {c.need && <div><dt className="label-mono">Necesidad {c.need.verified ? "documentada" : "sin documentar"}</dt><dd>{c.need.text}{c.need.verified && <> — <Src url={c.need.url} /></>}{c.need.quote && <q className="block text-muted-foreground">{c.need.quote}</q>}</dd></div>}
+            {c.capability && <div><dt className="label-mono">Capacidad aprobada considerada</dt><dd>{c.capability.title}{c.capability.reason ? ` — ${c.capability.reason}` : ""}</dd></div>}
+            {c.criteria?.length ? <div><dt className="label-mono">Criterios para calificar</dt><dd><ul className="ml-4 list-disc">{c.criteria.map((k) => <li key={k.label} className={k.met ? "" : "text-muted-foreground"}>{k.met ? "Cumple" : "Falta"}: {k.label}</li>)}</ul></dd></div> : null}
             <div><dt className="label-mono">Hipótesis de aplicación</dt><dd>{c.hypothesis}</dd></div>
             <div><dt className="label-mono">Falta validar</dt><dd>{c.to_validate}</dd></div>
             {c.intro_request && <div><dt className="label-mono">Pedido al contacto</dt><dd className="rounded-sm bg-mint/10 p-2">{c.intro_request}</dd></div>}
@@ -43,7 +46,8 @@ export function ProspectCard({ p }: { p: ProspectView }) {
       {gaps.length > 0 && <details className="text-xs"><summary className="cursor-pointer label-mono">Brechas ({gaps.length})</summary><ul className="ml-4 mt-1 list-disc">{gaps.map((g) => <li key={g}>{g}</li>)}</ul></details>}
       {sources.length > 0 && <details className="text-xs"><summary className="cursor-pointer label-mono">Fuentes consultadas ({sources.length})</summary>
         <ul className="ml-4 mt-1 list-disc">{sources.map((s) => <li key={s.url}><Src url={s.url} date={s.published_at} /> {s.title}</li>)}</ul></details>}
-      <div className="text-xs text-muted-foreground">{p.usage.queries} búsquedas · {p.usage.llm_calls} llamadas IA · {p.usage.seconds}s</div>
+      {p.phases?.length ? <div className="text-xs"><span className="label-mono">Fases</span> {p.phases.map((f) => `${f.label}: ${f.status === "done" ? "lista" : f.status === "partial" ? "parcial" : f.status === "skipped" ? "no ejecutada" : "falló"}`).join(" · ")}{p.proposals_saved != null ? ` · ${p.proposals_saved} propuestas guardadas` : ""}</div> : null}
+      <div className="text-xs text-muted-foreground">Uso: {p.usage.queries} búsquedas · {p.usage.reads ?? (p.usage as { scrapes?: number }).scrapes ?? 0} páginas leídas · {p.usage.retries ?? 0} reintentos · {p.usage.llm_calls} llamadas al modelo · {p.usage.seconds}s</div>
     </div>
   );
 }

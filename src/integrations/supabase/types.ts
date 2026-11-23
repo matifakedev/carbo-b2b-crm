@@ -635,6 +635,71 @@ export type Database = {
           },
         ]
       }
+      carbo_context: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          archived_at: string | null
+          body: string
+          created_at: string
+          created_by: string | null
+          evidence: string | null
+          id: string
+          is_sensitive: boolean
+          kind: string
+          source_detail: string | null
+          status: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          body: string
+          created_at?: string
+          created_by?: string | null
+          evidence?: string | null
+          id?: string
+          is_sensitive?: boolean
+          kind: string
+          source_detail?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          archived_at?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          evidence?: string | null
+          id?: string
+          is_sensitive?: boolean
+          kind?: string
+          source_detail?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carbo_context_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commission_interest: {
         Row: {
           conditions: string | null
@@ -2439,18 +2504,21 @@ export type Database = {
           id: string
           is_demo: boolean
           name: string
+          timezone: string
         }
         Insert: {
           created_at?: string
           id?: string
           is_demo?: boolean
           name: string
+          timezone?: string
         }
         Update: {
           created_at?: string
           id?: string
           is_demo?: boolean
           name?: string
+          timezone?: string
         }
         Relationships: []
       }

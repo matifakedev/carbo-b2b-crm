@@ -56,7 +56,9 @@ export const personKey = (id: string) => `p:${id}`;
 export const orgKey = (id: string) => `o:${id}`;
 
 /** Loads the whole workspace graph. Expansion in the UI is on demand; the dataset is small. */
-export async function loadGraph(workspaceId: string): Promise<Graph> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function loadGraph(workspaceId: string, client: any = supabase): Promise<Graph> {
+  const supabase = client as typeof import("@/integrations/supabase/client").supabase;
   const [people, orgs, links, intros, affs, members] = await Promise.all([
     supabase.from("people").select("id, full_name, archived_at, source_type").eq("workspace_id", workspaceId),
     supabase.from("organizations").select("id, name, archived_at").eq("workspace_id", workspaceId),

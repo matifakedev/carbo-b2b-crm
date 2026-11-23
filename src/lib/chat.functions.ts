@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { RECORD_TABLES, ROLE_VALUES, TOOLS, queryNamesPerson, researchForChat, pickAllowed, stripInventedNumbers, systemPrompt, validIsoDate, type RecordType } from "@/lib/chat-agent";
+import { RECORD_TABLES, ROLE_VALUES, TOOLS, carboContextView, localToday, queryNamesPerson, researchForChat, pickAllowed, stripInventedNumbers, systemPrompt, validIsoDate, type RecordType } from "@/lib/chat-agent";
 
 const MODEL = "openai/gpt-6-astra" as const;
 const MAX_STEPS = 10;
@@ -10,7 +10,8 @@ type Sb = any;
 export type ActionCard = { id: string; summary: string; table: string; record_id: string; op: "create" | "update"; link: { type: string; id: string } | null };
 export type Question = { question: string; options: string[] };
 export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number; prospect?: import("@/lib/prospecting").ProspectView };
-type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[]; request: string };
+type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[]; request: string; lastUser: string; lastBatch: string | null; batch: BatchCard | null; tz: string };
+export type BatchCard = { extraction_id: string; title: string; proposals: { id: string; kind: string; summary: string; evidence: string | null; ambiguity: string | null; status: string }[] };
 
 const LINK: Record<string, string> = { people: "person", organizations: "organization", projects: "project", tasks: "task" };
 
@@ -29,6 +30,15 @@ export async function opKey(request: string, tool: string, args: Record<string, 
   const raw = `${request}|${tool}|${JSON.stringify(args, Object.keys(args).sort())}`;
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
   return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+function proposalSummary(kind: string, p: Record<string, unknown>, names: Record<string, string> = {}): string {
+  const raw = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : "");
+  const g = (k: string) => (k.endsWith("_ref") ? names[raw(k)] ?? "" : raw(k));
+  if (kind === "affiliation") return `Afiliación: ${g("person_ref") || "persona"} → ${raw("org_name")}${raw("title") ? ` (${raw("title")})` : ""}`.slice(0, 200);
+  if (kind === "introduction") return `Introducción (${raw("intro_kind") === "done" ? "realizada" : raw("intro_kind") === "request" ? "pedido" : "hipótesis"}): ${g("introducer_ref") || "?"} → ${g("introduced_ref") || "nosotros"} → ${g("target_ref") || raw("target_description") || "?"}`.slice(0, 200);
+  const L: Record<string, string> = { person: "Persona", affiliation: "Afiliación", introduction: "Introducción", need: "Necesidad", task: "Tarea", project: "Proyecto", participant: "Participante", project_update: "Actualización de proyecto" };
+  const body = g("full_name") || g("name") || g("title") || g("description") || [g("person_ref"), g("org_name")].filter(Boolean).join(" → ") || g("target_description") || g("purpose");
+  return `${L[kind] ?? kind}: ${body}`.slice(0, 200);
 }
 const nn = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 async function inWs(c: Ctx, table: string, id: unknown) {
@@ -169,7 +179,9 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       return { updated: true, dropped_numbers_not_in_text: dropped };
     }
     case "log_conversation": {
-      const title = nn(a["title"]) ?? "Nota"; const body = String(a["body"] ?? "");
+      const title = nn(a["title"]) ?? "Nota";
+      // The original is kept from the server, never re-typed by the model.
+      const body = a["use_last_message"] ? c.lastUser : String(a["body"] ?? "");
       const steps: Step[] = [{ ref: "c", table: "conversations", op: "insert", values: { title, body, ...(validIsoDate(a["occurred_at"]) ? { occurred_at: validIsoDate(a["occurred_at"]) } : {}) }, summary: `Guardé la conversación «${title}»`, link_type: null }];
       const missing: string[] = [];
       for (const [key, t, col] of [["person_ids", "people", "person_id"], ["organization_ids", "organizations", "organization_id"], ["project_ids", "projects", "project_id"]] as const)
@@ -202,6 +214,129 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       if (!pid && !oid && !un) return { error: "indicá persona, organización o descripción" };
       await apply(c, name, a, [{ table: "project_participants", op: "insert", values: { project_id: a["project_id"], role: a["role"], person_id: pid, organization_id: oid, unidentified_description: un, notes: nn(a["notes"]), source_type: "personal", source_detail: c.detail }, summary: `Agregué un participante (${a["role"]}) al proyecto`, link_type: "project", link_id: a["project_id"] as string }]);
       return { created: true };
+    }
+    case "get_carbo_context": {
+      const [caps, ctx] = await Promise.all([
+        sb.from("carbo_capabilities").select("title, applications, limits, evidence, references_text, communicable, is_commercial_sensitive, status").eq("workspace_id", c.ws).is("archived_at", null),
+        sb.from("carbo_context").select("kind, title, body, evidence, is_sensitive, status").eq("workspace_id", c.ws).is("archived_at", null),
+      ]);
+      return carboContextView(caps.data ?? [], ctx.data ?? []);
+    }
+    case "add_team_note": {
+      const title = nn(a["title"]); const body = nn(a["body"]); if (!title || !body) return { error: "falta título o contenido" };
+      const kind = ["team_note", "commercial_profile", "claim"].includes(String(a["kind"])) ? String(a["kind"]) : "team_note";
+      await apply(c, name, a, [{ table: "carbo_context", op: "insert", values: { kind, title, body, is_sensitive: !!a["is_sensitive"], status: "draft", source_detail: c.detail }, summary: `Registré como borrador sin aprobar: ${title}`, link_type: null }]);
+      return { created: true, status: "borrador: un administrador debe aprobarlo en Capacidades" };
+    }
+    case "network_routes": {
+      const tt = a["target_type"] === "organization" ? "organizations" : "people";
+      if (!(await inWs(c, tt, a["target_id"]))) return { error: "destino no encontrado" };
+      const N = await import("@/lib/network");
+      const g = await N.loadGraph(c.ws, sb);
+      const { data: m } = await sb.from("workspace_members").select("person_id").eq("workspace_id", c.ws).eq("user_id", c.uid).maybeSingle();
+      const start = m?.person_id ? N.personKey(m.person_id) : N.ROOT_ID;
+      const target = tt === "people" ? N.personKey(String(a["target_id"])) : N.orgKey(String(a["target_id"]));
+      const routes = N.findRoutes(g, start, target, 5, {}, 12);
+      const label = (id: string) => g.nodes.get(id)?.label ?? id;
+      return {
+        scope: `Red registrada en este espacio (${g.nodes.size - 1} nodos, ${g.edges.length} relaciones) desde ${m?.person_id ? "tu ficha" : "el equipo"}, hasta 5 pasos y 12 rutas. No incluye relaciones no registradas.`,
+        routes: routes.map((r) => ({ path: r.nodes.map(label), steps: r.edges.map((e) => ({ kind: e.kind, label: e.label, status: (e as { status?: string }).status ?? null })) })),
+        note: routes.length ? "Cada ruta es un camino distinto; una afiliación o membresía no prueba relación personal." : "No hay rutas registradas hacia ese destino.",
+      };
+    }
+    case "account_history": {
+      const isP = a["type"] === "person"; const id = String(a["id"] ?? "");
+      if (!(await inWs(c, isP ? "people" : "organizations", id))) return { error: "no encontrado" };
+      const col = isP ? "person_id" : "organization_id";
+      const [cl, intros, needs, tasks] = await Promise.all([
+        sb.from("conversation_links").select("conversations(id, title, occurred_at, body, archived_at)").eq("workspace_id", c.ws).eq(col, id).limit(30),
+        isP ? sb.from("introductions").select("id, kind, status, purpose, context, next_action, follow_up_at, occurred_at, introducer_person_id, introduced_person_id, target_person_id, target_description").eq("workspace_id", c.ws).is("archived_at", null).or(`introducer_person_id.eq.${id},introduced_person_id.eq.${id},target_person_id.eq.${id}`).limit(30)
+          : sb.from("introductions").select("id, kind, status, purpose, context, next_action, follow_up_at, occurred_at, target_description").eq("workspace_id", c.ws).is("archived_at", null).eq("target_org_id", id).limit(30),
+        sb.from("needs").select("description, evidence, confirmed").eq("workspace_id", c.ws).is("archived_at", null).eq(col, id).limit(30),
+        (isP ? sb.from("tasks").select("id, title, status, due_date, waiting_on_person_id, confirmed").eq("workspace_id", c.ws).is("archived_at", null).or(`person_id.eq.${id},waiting_on_person_id.eq.${id}`) : sb.from("tasks").select("id, title, status, due_date, confirmed").eq("workspace_id", c.ws).is("archived_at", null).eq("organization_id", id)).order("due_date", { ascending: true, nullsFirst: false }).limit(40),
+      ]);
+      const convs = (cl.data ?? []).map((x: { conversations: { archived_at: string | null; body: string | null } | null }) => x.conversations).filter((x: { archived_at: string | null } | null) => x && !x.archived_at).map((x: { body: string | null }) => ({ ...x, body: (x.body ?? "").slice(0, 500) }));
+      const open = (tasks.data ?? []).filter((t: { status: string }) => t.status === "open" || t.status === "waiting");
+      return { scope: `Registros vinculados directamente a ${isP ? "esta persona" : "esta organización"} (hasta 30 por tipo). No incluye información no cargada.`, conversations: convs, introductions: intros.data ?? [], needs: needs.data ?? [], commitments_open: open, tasks_all: tasks.data ?? [] };
+    }
+    case "list_tasks": {
+      let q = sb.from("tasks").select("id, title, status, due_date, owner_user_id, person_id, waiting_on_person_id, organization_id, project_id, people:person_id(full_name), organizations(name)").eq("workspace_id", c.ws).is("archived_at", null);
+      if (a["status"]) q = q.eq("status", a["status"]);
+      if (a["owner_user_id"]) q = q.eq("owner_user_id", a["owner_user_id"]);
+      if (a["person_id"]) q = q.or(`person_id.eq.${a["person_id"]},waiting_on_person_id.eq.${a["person_id"]}`);
+      if (a["organization_id"]) q = q.eq("organization_id", a["organization_id"]);
+      const df = validIsoDate(a["due_from"]); const dt = validIsoDate(a["due_to"]);
+      if (df) q = q.gte("due_date", df); if (dt) q = q.lte("due_date", dt);
+      const { data, error } = await q.order("due_date", { ascending: true, nullsFirst: false }).limit(50);
+      if (error) return { error: error.message };
+      return { today: localToday(c.tz), scope: `Tareas no archivadas del espacio con esos filtros (máx. 50${(data ?? []).length >= 50 ? ", hay más" : ""}).`, tasks: data ?? [] };
+    }
+    case "record_introduction": {
+      for (const k of ["introducer_person_id", "introduced_person_id", "target_person_id"]) if (a[k] && !(await inWs(c, "people", a[k]))) return { error: `${k} no encontrado` };
+      if (a["target_org_id"] && !(await inWs(c, "organizations", a["target_org_id"]))) return { error: "organización destino no encontrada" };
+      for (const k of ["follow_up_at", "occurred_at"]) if (a[k] != null && !validIsoDate(a[k])) return { error: `${k} inválida; usá YYYY-MM-DD` };
+      const kind = String(a["kind"]); const status = nn(a["status"]) ?? (kind === "done" ? "done" : "requested");
+      const vals: Record<string, unknown> = { kind, status, introducer_person_id: a["introducer_person_id"] || null, introduced_person_id: a["introduced_person_id"] || null, target_person_id: a["target_person_id"] || null, target_org_id: a["target_org_id"] || null,
+        target_description: a["target_person_id"] || a["target_org_id"] ? null : nn(a["target_description"]), purpose: nn(a["purpose"]), context: nn(a["context"]), next_action: nn(a["next_action"]), follow_up_at: validIsoDate(a["follow_up_at"]), occurred_at: validIsoDate(a["occurred_at"]), source_type: kind === "hypothetical" ? "hypothesis" : "personal", source_detail: c.detail };
+      const label = kind === "done" ? "presentación realizada" : kind === "request" ? "pedido de introducción" : "introducción hipotética";
+      const link = a["target_person_id"] ? { link_type: "person", link_id: a["target_person_id"] as string } : a["introducer_person_id"] ? { link_type: "person", link_id: a["introducer_person_id"] as string } : { link_type: null };
+      if (nn(a["id"])) {
+        if (!(await inWs(c, "introductions", a["id"]))) return { error: "introducción no encontrada" };
+        const upd = Object.fromEntries(Object.entries(vals).filter(([k, v]) => v != null && k !== "source_detail"));
+        await apply(c, name, a, [{ table: "introductions", op: "update", id: a["id"] as string, values: upd, summary: `Actualicé la ${label}`, ...link }]);
+        return { updated: true };
+      }
+      if (!vals["target_person_id"] && !vals["target_org_id"] && !vals["target_description"]) return { error: "indicá destino (persona, organización o descripción)" };
+      let dq = sb.from("introductions").select("id").eq("workspace_id", c.ws).is("archived_at", null).eq("kind", kind);
+      for (const k of ["introducer_person_id", "introduced_person_id", "target_person_id", "target_org_id"]) dq = vals[k] ? dq.eq(k, vals[k]) : dq.is(k, null);
+      const { data: dup } = await dq.limit(1);
+      if (dup?.length) return { exists: true, id: dup[0].id, hint: "Ya existe ese evento; actualizalo con id si cambió el estado." };
+      const r = await apply(c, name, a, [{ ref: "i", table: "introductions", op: "insert", values: vals, summary: `Registré la ${label}`, ...link }]);
+      return { created: true, id: r.refs["i"] };
+    }
+    case "link_conversation": {
+      if (!(await inWs(c, "conversations", a["conversation_id"]))) return { error: "conversación no encontrada" };
+      const { data: ex } = await sb.from("conversation_links").select("person_id, organization_id, project_id").eq("conversation_id", a["conversation_id"]);
+      const has = new Set((ex ?? []).flatMap((x: Record<string, string | null>) => [x["person_id"], x["organization_id"], x["project_id"]]).filter(Boolean));
+      const steps: Step[] = [];
+      for (const [key, t, col] of [["person_ids", "people", "person_id"], ["organization_ids", "organizations", "organization_id"], ["project_ids", "projects", "project_id"]] as const)
+        for (const id of (a[key] as string[]) ?? []) { if (has.has(id)) continue; if (!(await inWs(c, t, id))) return { error: `${id} no encontrado; no vinculé nada` }; steps.push({ table: "conversation_links", op: "insert", values: { conversation_id: a["conversation_id"], [col]: id }, summary: "Vinculé la conversación", link_type: t === "people" ? "person" : t === "organizations" ? "organization" : "project", link_id: id }); }
+      if (!steps.length) return { exists: true, note: "ya estaba vinculada" };
+      await apply(c, name, a, steps);
+      return { linked: steps.length };
+    }
+    case "propose_batch": {
+      if (c.batch) return { error: "Ya preparé un lote en este turno." };
+      const text = c.lastUser; if (!text.trim()) return { error: "no hay mensaje" };
+      const title = (nn(a["title"]) ?? "Lote del chat").slice(0, 120);
+      const { data: doc, error } = await sb.from("source_documents").insert({ workspace_id: c.ws, kind: "notes", title, original_text: text }).select("id").single();
+      if (error) return { error: "No se pudo guardar el original: " + error.message };
+      const { data: ex, error: e2 } = await sb.from("brain_extractions").insert({ workspace_id: c.ws, source_document_id: doc.id }).select("id").single();
+      if (e2) return { error: e2.message };
+      const B = await import("@/lib/brain"); const { llm } = await import("@/lib/research.server");
+      const r = await llm(B.EXTRACTION_SYSTEM, `<documento tipo="notes">\n${text}\n</documento>`, "extraction", B.EXTRACTION_SCHEMA);
+      if (!r.ok) { await sb.from("brain_extractions").update({ status: "failed", error: r.message }).eq("id", ex.id); return { error: "No pude analizar el texto: " + r.message }; }
+      const items = B.sanitizeProposals(((r.json as { items?: import("@/lib/brain").ProposalItem[] }).items ?? []), text);
+      if (items.length) {
+        const { error: e3 } = await sb.from("brain_proposals").insert(items.map((i, position) => ({ workspace_id: c.ws, extraction_id: ex.id, kind: i.kind, proposed: i as never, evidence: i.evidence, ambiguity: i.ambiguity, position })));
+        if (e3) return { error: e3.message };
+      }
+      const { data: props } = await sb.from("brain_proposals").select("id, kind, proposed, evidence, ambiguity, status").eq("extraction_id", ex.id).order("position");
+      const names: Record<string, string> = Object.fromEntries((props ?? []).filter((p: { kind: string }) => p.kind === "person").map((p: { proposed: Record<string, string> }) => [p.proposed["ref"], p.proposed["full_name"]]));
+      c.batch = { extraction_id: ex.id, title, proposals: (props ?? []).map((p: { id: string; kind: string; proposed: Record<string, unknown>; evidence: string | null; ambiguity: string | null; status: string }) => ({ id: p.id, kind: p.kind, summary: proposalSummary(p.kind, p.proposed, names), evidence: p.evidence, ambiguity: p.ambiguity, status: p.status })) };
+      return { extraction_id: ex.id, proposals: c.batch.proposals, note: "Mostrale al usuario un resumen breve; el lote aparece como tarjeta para aceptar, corregir, descartar o asociar. No apliques nada hasta que confirme." };
+    }
+    case "confirm_batch": {
+      if (!c.lastBatch) return { error: "No hay un lote recién mostrado para confirmar." };
+      const { data: props } = await sb.from("brain_proposals").select("id, status").eq("extraction_id", c.lastBatch).eq("status", "pending");
+      const pend = (props ?? []).map((p: { id: string }) => p.id);
+      const acc = new Set(a["action"] === "accept_all" ? pend : (a["accept_ids"] as string[]) ?? []);
+      const rej = new Set(a["action"] === "reject_all" ? pend : (a["reject_ids"] as string[]) ?? []);
+      const decisions = pend.filter((id: string) => acc.has(id) || rej.has(id)).map((id: string) => ({ proposal_id: id, action: rej.has(id) ? "reject" : "accept" }));
+      if (!decisions.length) return { error: "Ninguna propuesta pendiente coincide con lo confirmado." };
+      const { data, error } = await sb.rpc("confirm_extraction", { _extraction: c.lastBatch, _decisions: decisions });
+      if (error) return { error: "No se aplicó el lote: " + error.message };
+      return { applied: data, note: "Aplicado sobre el lote mostrado; las propuestas ya decididas no se repiten." };
     }
     case "get_context": {
       const q = String(a["query"] ?? "").trim().slice(0, 100); const like = `%${q.replace(/[%_,()]/g, " ")}%`;
@@ -268,7 +403,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const sb = context.supabase as Sb;
-    const { data: member } = await sb.from("workspace_members").select("workspace_id, workspaces(name, is_demo)").eq("workspace_id", data.workspace_id).eq("user_id", context.userId).maybeSingle();
+    const { data: member } = await sb.from("workspace_members").select("workspace_id, workspaces(name, is_demo, timezone)").eq("workspace_id", data.workspace_id).eq("user_id", context.userId).maybeSingle();
     if (!member) throw new Error("Sin acceso a este espacio");
     // Request-level idempotency: a double submit or a lost response never repeats effects.
     const { error: rqErr } = await sb.from("brain_requests").insert({ workspace_id: data.workspace_id, request_id: data.request_id, user_id: context.userId, thread_id: data.thread_id ?? null });
@@ -306,13 +441,16 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
       const table = RECORD_TABLES[th.focus_type as RecordType];
       if (table) { const { data: f } = await sb.from(table).select(table === "people" ? "id, full_name" : table === "tasks" ? "id, title" : "id, name").eq("id", th.focus_id).maybeSingle(); if (f) focus = `${th.focus_type} ${JSON.stringify(f)}`; }
     }
-    const ws = member.workspaces as { name: string; is_demo: boolean };
-    const instructions = systemPrompt({ today: new Date().toISOString().slice(0, 10), workspace: ws.name, isDemo: ws.is_demo, members: (mem ?? []).map((m: { user_id: string; display_name: string | null; email: string | null }) => ({ id: m.user_id, name: m.display_name || m.email || "Miembro" })), focus });
-    const input: Item[] = history.map((m: { role: string; content: string; parts: { actions?: ActionCard[]; question?: Question } }) => ({
-      role: m.role, content: m.role === "assistant" ? [m.content, m.parts?.actions?.length ? `[Acciones realizadas: ${m.parts.actions.map((x) => `${x.summary} (${x.table}:${x.record_id})`).join("; ")}]` : "", m.parts?.question ? `[Pregunté: ${m.parts.question.question}]` : ""].filter(Boolean).join("\n") : m.content,
+    const ws = member.workspaces as { name: string; is_demo: boolean; timezone: string };
+    const tz = ws.timezone || "America/Argentina/Buenos_Aires";
+    const instructions = systemPrompt({ timeZone: tz, today: localToday(tz), workspace: ws.name, isDemo: ws.is_demo, members: (mem ?? []).map((m: { user_id: string; display_name: string | null; email: string | null }) => ({ id: m.user_id, name: m.display_name || m.email || "Miembro" })), focus });
+    const input: Item[] = history.map((m: { role: string; content: string; parts: { actions?: ActionCard[]; question?: Question; batch?: BatchCard } }) => ({
+      role: m.role, content: m.role === "assistant" ? [m.content, m.parts?.actions?.length ? `[Acciones realizadas: ${m.parts.actions.map((x) => `${x.summary} (${x.table}:${x.record_id})`).join("; ")}]` : "", m.parts?.question ? `[Pregunté: ${m.parts.question.question}]` : "", m.parts?.batch ? `[Lote mostrado para revisar: ${m.parts.batch.proposals.length} propuestas; confirm_batch lo aplica si el usuario confirma]` : ""].filter(Boolean).join("\n") : m.content,
     }));
 
-    const c: Ctx = { sb, ws: data.workspace_id, uid: context.userId, thread, userText, actions: [], question: null, research: [], request: data.request_id, detail: `Brain · chat ${thread.slice(0, 8)}` };
+    const c: Ctx = { sb, ws: data.workspace_id, uid: context.userId, thread, userText, actions: [], question: null, research: [], request: data.request_id, tz, batch: null,
+      lastUser: [...history].reverse().find((m: { role: string }) => m.role === "user")?.content ?? data.text,
+      lastBatch: [...history].reverse().find((m: { role: string }) => m.role === "assistant")?.parts?.batch?.extraction_id ?? null, detail: `Brain · chat ${thread.slice(0, 8)}` };
     let text = ""; let failure: string | null = null;
     if (!process.env["LOVABLE_API_KEY"]) failure = "El Brain no está configurado.";
     else {
@@ -343,7 +481,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
     const pr = c.research.find((x) => x.prospect);
     if (pr?.prospect) { const { prospectMessage } = await import("@/lib/prospecting"); text = `${failure ? `${failure}\n\n` : ""}${prospectMessage(pr.organization, pr.prospect)}`; }
     if (!text) text = c.actions.length ? "Listo." : "No pude generar una respuesta.";
-    const parts = { actions: c.actions, question: c.question, error: failure, research: c.research };
+    const parts = { actions: c.actions, question: c.question, error: failure, research: c.research, batch: c.batch };
     const { error: e2 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "assistant", content: text, parts });
     if (e2) throw new Error(e2.message);
     await sb.from("brain_threads").update({ updated_at: new Date().toISOString() }).eq("id", thread);

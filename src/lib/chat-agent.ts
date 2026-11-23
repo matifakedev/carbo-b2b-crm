@@ -65,8 +65,8 @@ export const TOOLS = [
     person_id: s("persona relacionada"), organization_id: s("organización relacionada"), project_id: s("proyecto relacionado") }),
   fn("update_record", "Actualiza campos de un registro. Campos permitidos: persona(full_name, location, relationship_context, notes), organización(name, location, website, description), proyecto(name, need, location, project_stage, evidence, blockers, next_milestone, power_mw, energy_mwh, duration_h), tarea(title, context, due_date, status open|waiting|done|cancelled, owner_user_id). Pasá fields como JSON string.", {
     type: { type: "string", enum: ["person", "organization", "project", "task"] }, id: { type: "string" }, fields_json: { type: "string" } }),
-  fn("log_conversation", "Guarda una conversación, email o nota tal cual (body literal) y la vincula a personas/organizaciones/proyectos.", {
-    title: { type: "string" }, body: { type: "string" }, occurred_at: s("YYYY-MM-DD"), person_ids: { type: "array", items: { type: "string" } }, organization_ids: { type: "array", items: { type: "string" } }, project_ids: { type: "array", items: { type: "string" } } }),
+  fn("log_conversation", "Guarda una conversación, email o nota y la vincula a personas/organizaciones/proyectos. Si el texto es lo que el usuario pegó en su último mensaje, usá use_last_message=true y body=null: el servidor guarda el original exacto.", {
+    title: { type: "string" }, body: s("solo si no es el último mensaje del usuario"), use_last_message: { type: "boolean" }, occurred_at: s("YYYY-MM-DD"), person_ids: { type: "array", items: { type: "string" } }, organization_ids: { type: "array", items: { type: "string" } }, project_ids: { type: "array", items: { type: "string" } } }),
   fn("add_need", "Registra una necesidad identificada de una persona u organización.", { description: { type: "string" }, evidence: s("cita textual"), person_id: s("persona"), organization_id: s("organización") }),
   fn("create_project", "Crea un proyecto. MW/MWh/horas solo si el usuario los escribió; nunca los derives.", {
     name: { type: "string" }, need: s("necesidad"), location: s("ubicación"), evidence: s("evidencia"), blockers: s("bloqueos"), next_milestone: s("siguiente hito"),
@@ -79,6 +79,18 @@ export const TOOLS = [
   fn("prospect_network", "Investigación en rondas a través de la red de una institución (cámara, asociación): busca miembros/sponsors/comités, selecciona empresas según el perfil de Carbo, las investiga y prioriza hasta 5 con pedidos de introducción. Usalo cuando piden empresas vinculadas a una institución para pedir intros. Los cambios al CRM quedan como propuestas.", {
     organization_id: { type: "string" }, place: s("ciudad/región si la dio el usuario"), commercial_profile: s("perfil comercial que dio el usuario (si no hay capacidades aprobadas)"),
     max_candidates: { type: ["integer", "null"] }, max_queries: { type: ["integer", "null"] }, max_seconds: { type: ["integer", "null"] } }),
+  fn("get_carbo_context", "Contexto compartido de Carbo: capacidades (con límites y evidencia, aprobadas o no), perfil comercial buscado, información del equipo sin verificar y afirmaciones aprobadas para comunicar. Usalo antes de evaluar encaje o redactar pedidos.", {}),
+  fn("add_team_note", "Registra información sobre Carbo aportada por el equipo (capacidad, límite, referencia, perfil buscado). Queda SIEMPRE como borrador sin aprobar.", { kind: { type: "string", enum: ["team_note", "commercial_profile", "claim"] }, title: { type: "string" }, body: { type: "string" }, is_sensitive: { type: "boolean" } }),
+  fn("network_routes", "Rutas conocidas en la red desde el usuario/equipo hasta una persona u organización (vínculos, introducciones y afiliaciones registradas). Indica el alcance consultado.", { target_type: { type: "string", enum: ["person", "organization"] }, target_id: { type: "string" } }),
+  fn("account_history", "Conversaciones, introducciones, necesidades, tareas y compromisos registrados de una persona u organización, con alcance.", { type: { type: "string", enum: ["person", "organization"] }, id: { type: "string" } }),
+  fn("list_tasks", "Lista tareas filtrando por estado, responsable, persona/organización relacionada o rango de fechas (YYYY-MM-DD).", { status: { type: ["string", "null"], enum: ["open", "waiting", "done", "cancelled", null] }, owner_user_id: s("id de miembro"), person_id: s("persona relacionada o de quien esperamos respuesta"), organization_id: s("organización"), due_from: s("YYYY-MM-DD"), due_to: s("YYYY-MM-DD") }),
+  fn("record_introduction", "Crea o actualiza un EVENTO de introducción (no reemplaza un vínculo 'conoce a'). kind: done=presentación realizada, request=pedido pendiente, hypothetical=hipótesis. Si el destino no está identificado usá target_description. Una derivación (Ana deriva a Carlos) es otro evento con introducer=Ana.", {
+    id: s("id para actualizar; null para crear"), kind: { type: "string", enum: ["done", "request", "hypothetical"] }, status: { type: ["string", "null"], enum: ["requested", "in_progress", "done", "declined", "no_response", null] },
+    introducer_person_id: s("quién presenta/deriva"), introduced_person_id: s("a quién presentan (suele ser alguien de Carbo)"), target_person_id: s("destino identificado"), target_org_id: s("organización destino"), target_description: s("destino sin identificar"),
+    purpose: s("para qué"), context: s("contexto según el usuario"), next_action: s("próximo paso"), follow_up_at: s("YYYY-MM-DD"), occurred_at: s("YYYY-MM-DD") }),
+  fn("link_conversation", "Vincula una conversación ya guardada a más personas, organizaciones o proyectos (sin duplicarla).", { conversation_id: { type: "string" }, person_ids: { type: "array", items: { type: "string" } }, organization_ids: { type: "array", items: { type: "string" } }, project_ids: { type: "array", items: { type: "string" } } }),
+  fn("propose_batch", "Para un documento o mensaje con varias relaciones, hipótesis, cambios sobre registros existentes o identidades ambiguas: prepara un lote revisable dentro del chat desde el ÚLTIMO mensaje del usuario (el servidor conserva el original). No aplica nada.", { title: { type: "string" } }),
+  fn("confirm_batch", "Aplica el lote que se acaba de mostrar, solo si el usuario lo confirmó en este mensaje. action: accept_all o reject_all; o decisions por propuesta.", { action: { type: "string", enum: ["accept_all", "reject_all", "custom"] }, accept_ids: { type: "array", items: { type: "string" } }, reject_ids: { type: "array", items: { type: "string" } } }),
   fn("ask_user", "Hacé una pregunta al usuario cuando falte información o haya ambigüedad. Termina tu turno.", { question: { type: "string" }, options: { type: "array", items: { type: "string" } } }),
 ];
 
@@ -113,9 +125,36 @@ export function researchForChat(f: ChatFinding[]) {
   };
 }
 
-export function systemPrompt(ctx: { today: string; workspace: string; isDemo: boolean; members: { id: string; name: string }[]; focus: string | null }) {
+/** Provisional commercial profile until the team approves one in Capacidades. */
+export const PROVISIONAL_PROFILE = "Perfil provisional: grandes proyectos y almacenamiento de energía de muchas horas (larga duración). No alcanza con ser un consumidor grande o una empresa que se expande: buscar proyectos de escala con necesidad documentada de almacenamiento prolongado.";
+
+/** Local calendar date (YYYY-MM-DD) in the workspace time zone; never UTC as a stand-in for local "today". */
+export function localToday(timeZone: string, now = new Date()): string {
+  try { return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now); }
+  catch { return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires", year: "numeric", month: "2-digit", day: "2-digit" }).format(now); }
+}
+
+type Cap = { title: string; applications: string | null; limits: string | null; evidence: string | null; references_text?: string | null; communicable: string | null; is_commercial_sensitive: boolean; status: string };
+type Ctx = { kind: string; title: string; body: string; evidence: string | null; is_sensitive: boolean; status: string };
+/** Labels every piece of Carbo context so the model never treats unverified or sensitive info as approved/public. */
+export function carboContextView(caps: Cap[], ctx: Ctx[]) {
+  const approvedProfile = ctx.filter((c) => c.kind === "commercial_profile" && c.status === "approved");
+  return {
+    capabilities: caps.map((c) => ({ title: c.title, applications: c.applications, limits: c.limits, evidence: c.evidence, references: c.references_text ?? null,
+      status: c.status === "approved" ? "aprobada" : "sin aprobar (no usar como hecho)", internal_only: c.is_commercial_sensitive })),
+    commercial_profile: approvedProfile.length ? approvedProfile.map((c) => ({ title: c.title, body: c.body, status: "aprobado" })) : [{ title: "Perfil provisional", body: PROVISIONAL_PROFILE, status: "provisional" }],
+    team_info_unverified: ctx.filter((c) => c.kind !== "claim" && c.status !== "approved" && c.kind !== "commercial_profile").map((c) => ({ title: c.title, body: c.body, internal_only: c.is_sensitive })),
+    communicable_claims: [
+      ...caps.filter((c) => c.status === "approved" && !c.is_commercial_sensitive && c.communicable?.trim()).map((c) => ({ title: c.title, text: c.communicable })),
+      ...ctx.filter((c) => c.kind === "claim" && c.status === "approved" && !c.is_sensitive).map((c) => ({ title: c.title, text: c.body })),
+    ],
+    rules: "Una capacidad aprobada no implica encaje con todo proyecto: usá también sus límites y evidencia. Lo 'sin aprobar' o 'internal_only' nunca va en textos externos. La falta de datos aprobados limita conclusiones técnicas pero no impide proponer candidatas exploratorias.",
+  };
+}
+
+export function systemPrompt(ctx: { timeZone?: string; today: string; workspace: string; isDemo: boolean; members: { id: string; name: string }[]; focus: string | null }) {
   return `Sos el Brain del CRM - CARBO de Carbo Energy (baterías industriales, ventas B2B a grandes clientes). Sos el punto de contacto del equipo: respondés consultas y gestionás el CRM usando herramientas.
-Hoy es ${ctx.today}. Espacio: ${ctx.workspace}${ctx.isDemo ? " (demostración, datos ficticios)" : ""}.
+Hoy es ${ctx.today}${ctx.timeZone ? ` (zona horaria ${ctx.timeZone})` : ""}. Espacio: ${ctx.workspace}${ctx.isDemo ? " (demostración, datos ficticios)" : ""}.
 Miembros (para responsables de tareas): ${ctx.members.map((m) => `${m.name}=${m.id}`).join(", ") || "ninguno"}.
 ${ctx.focus ? `Foco de este chat: ${ctx.focus}` : ""}
 
@@ -125,8 +164,11 @@ Reglas:
 - Si create_person/create_organization devuelve candidatos, preguntá con ask_user cuál es (opciones con nombres) o si es nueva. No fusiones ni elijas entre homónimos.
 - Estar en la misma reunión o asociación no implica que se conozcan.
 - No creás oportunidades, etapas de pipeline, montos ni probabilidades desde el chat; si lo piden, indicá que se cargan en Oportunidades.
-- Cuando pegan un email/notas/transcripción, guardalo literal con log_conversation y vinculalo.
-- Fechas relativas ("el jueves") convertilas a YYYY-MM-DD usando la fecha de hoy; si es ambigua, preguntá.
+- Cuando pegan un email/notas/transcripción simple, guardalo con log_conversation(use_last_message=true) y vinculalo. Si implica varias relaciones, hipótesis, cambios sobre registros existentes o identidades ambiguas, usá propose_batch en vez de escribir directo; si el usuario responde "sí/aplicá" al lote recién mostrado, usá confirm_batch.
+- Las consultas (buscar, rutas, historial, tareas) no requieren confirmación. Al responder indicá el alcance real consultado; nunca digas que revisaste toda la red si consultaste una parte.
+- Introducciones: "Magda me presentó a Ana" es un evento record_introduction(kind=done, introducer=Magda, introduced=usuario, target=Ana); "Ana nos deriva a Carlos" es OTRO evento (introducer=Ana). Pedidos pendientes = kind request; ideas = hypothetical. Un vínculo add_person_link "conoce a" no reemplaza un evento. Buscá antes para no duplicar personas; varios caminos a la misma persona se registran como eventos distintos sobre la misma ficha.
+- Fechas relativas ("el jueves", "mañana") convertilas a YYYY-MM-DD usando la fecha de hoy en la zona horaria del espacio; si es ambigua, preguntá.
+- Para evaluar encaje o perfil buscado usá get_carbo_context. Si el usuario aporta info sobre Carbo, registrala con add_team_note (queda sin aprobar).
 - Al final respondé breve en español rioplatense: qué hiciste, qué respondés y qué falta (datos incompletos detectados: email, cargo, evaluador técnico, etc.). Al consultar, distinguí hechos registrados de inferencias.
 - Si el usuario dice que conoce a alguien o que es su contacto, además de crear la persona usá add_person_link (from_person_id=null) para que quede en su red. Si la herramienta devuelve candidatas para la ficha del usuario, preguntale cuál es la suya (o si creás una nueva) antes de seguir; nunca reutilices una ficha archivada.
 - Si una herramienta devuelve error, no se guardó nada de esa operación: decilo y no lo presentes como hecho.

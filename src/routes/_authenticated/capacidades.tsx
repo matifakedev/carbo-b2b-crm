@@ -62,7 +62,58 @@ function Capabilities() {
           </article>
         ))}
       </div>
+      <ContextSection ws={ws} isAdmin={isAdmin} />
     </>
+  );
+}
+
+const KIND: Record<string, string> = { commercial_profile: "Perfil comercial buscado", team_note: "Aportado por el equipo", claim: "Afirmación para comunicar" };
+type Ctx = { id: string; kind: string; title: string; body: string; is_sensitive: boolean; status: string };
+function ContextSection({ ws, isAdmin }: { ws: string; isAdmin: boolean }) {
+  const qc = useQueryClient();
+  const { data: items = [] } = useQuery({
+    queryKey: ["carbo-context", ws],
+    queryFn: async () => ((await supabase.from("carbo_context").select("id, kind, title, body, is_sensitive, status").eq("workspace_id", ws).is("archived_at", null).order("kind")).data ?? []) as Ctx[],
+  });
+  const [d, setD] = useState({ kind: "commercial_profile", title: "", body: "", is_sensitive: false });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["carbo-context", ws] });
+  async function add() {
+    if (!d.title.trim() || !d.body.trim()) { toast.error("Título y contenido son obligatorios"); return; }
+    const { error } = await supabase.from("carbo_context").insert({ ...d, workspace_id: ws, title: d.title.trim(), body: d.body.trim() });
+    if (error) toast.error(error.message); else { toast.success("Guardado como borrador"); setD({ ...d, title: "", body: "" }); refresh(); }
+  }
+  async function update(id: string, patch: { status?: string; archived_at?: string }) {
+    const { error } = await supabase.from("carbo_context").update(patch).eq("id", id);
+    if (error) toast.error(error.message); else refresh();
+  }
+  return (
+    <section className="mt-10 space-y-4" aria-labelledby="ctx-h">
+      <h2 id="ctx-h" className="text-lg font-semibold">Contexto comercial de Carbo</h2>
+      <p className="max-w-3xl text-sm text-muted-foreground">El Brain consulta esta base. Lo que no está aprobado se trata como información sin verificar y nunca va en textos externos. Mientras no haya un perfil aprobado, se usa el provisional: grandes proyectos y almacenamiento de muchas horas.</p>
+      <ul className="divide-y divide-border">
+        {items.length === 0 && <li className="py-3 text-sm text-muted-foreground">Sin entradas todavía.</li>}
+        {items.map((c) => (
+          <li key={c.id} className="space-y-1 py-3">
+            <div className="flex flex-wrap items-center gap-2"><span className="label-mono">{KIND[c.kind] ?? c.kind}</span><strong>{c.title}</strong><Tag tone={STATUS[c.status]?.[1] ?? "neutral"}>{STATUS[c.status]?.[0] ?? c.status}</Tag>{c.is_sensitive && <Tag tone="warning">Uso interno</Tag>}</div>
+            <p className="whitespace-pre-wrap text-sm">{c.body}</p>
+            <div className="flex gap-2">
+              {isAdmin && c.status !== "approved" && <Button size="sm" onClick={() => void update(c.id, { status: "approved" })}>Aprobar</Button>}
+              {c.status === "draft" && !isAdmin && <Button size="sm" variant="outline" onClick={() => void update(c.id, { status: "in_review" })}>Enviar a revisión</Button>}
+              <Button size="sm" variant="ghost" onClick={() => void update(c.id, { archived_at: new Date().toISOString() })}>Archivar</Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="panel space-y-3 p-5">
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Tipo" htmlFor="xk"><select id="xk" className="h-9 w-full rounded-sm border border-input bg-background px-2 text-sm" value={d.kind} onChange={(e) => setD({ ...d, kind: e.target.value })}>{Object.entries(KIND).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></Field>
+          <Field label="Título" htmlFor="xt"><Input id="xt" value={d.title} onChange={(e) => setD({ ...d, title: e.target.value })} /></Field>
+        </div>
+        <Field label="Contenido" htmlFor="xb"><Textarea id="xb" rows={3} value={d.body} onChange={(e) => setD({ ...d, body: e.target.value })} /></Field>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={d.is_sensitive} onChange={(e) => setD({ ...d, is_sensitive: e.target.checked })} /> Información interna o sensible</label>
+        <Button onClick={() => void add()}>Agregar</Button>
+      </div>
+    </section>
   );
 }
 function Item({ k, v }: { k: string; v: string | null }) { return <div><dt className="label-mono text-muted-foreground">{k}</dt><dd className="whitespace-pre-wrap">{v || "—"}</dd></div>; }
