@@ -17,19 +17,33 @@ function ChatLayout() {
     queryFn: async () => (await supabase.from("brain_threads").select("id, title, updated_at").eq("workspace_id", ws!).eq("owner_user_id", userId!).is("archived_at", null).order("updated_at", { ascending: false }).limit(50)).data ?? [],
   });
   return (
-    <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-      <aside className="space-y-3 lg:border-r lg:border-border lg:pr-4">
-        <Button asChild className="w-full"><Link to="/chat" search={{}}>Nuevo chat</Link></Button>
-        <div className="label-mono text-muted-foreground">Tus chats</div>
-        <nav className="max-h-[70vh] space-y-1 overflow-y-auto">
-          {threads.map((t) => (
-            <Link key={t.id} to="/chat/$threadId" params={{ threadId: t.id }} className="block truncate rounded-sm px-2 py-2 text-sm hover:bg-muted" activeProps={{ className: "bg-muted font-semibold" }}>{t.title}</Link>
-          ))}
-          {!threads.length && <p className="text-xs text-muted-foreground">Todavía no hay chats.</p>}
-        </nav>
-        <Link to="/actividad" className="block text-xs font-semibold text-primary underline">Actividad del Brain</Link>
+    <div className="grid gap-4 lg:grid-cols-[232px_1fr] lg:gap-8">
+      <aside className="lg:sticky lg:top-8 lg:self-start">
+        <div className="flex items-center gap-2 lg:block lg:space-y-3">
+          <Button asChild className="lg:w-full"><Link to="/chat" search={{}}>Nuevo chat</Link></Button>
+          <details className="group flex-1 lg:hidden">
+            <summary className="cursor-pointer list-none rounded-md px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted">Tus chats ({threads.length})</summary>
+            <ThreadList threads={threads} />
+          </details>
+        </div>
+        <div className="hidden lg:block">
+          <div className="label-mono mb-2 mt-5 text-muted-foreground">Tus chats</div>
+          <ThreadList threads={threads} />
+          <Link to="/actividad" className="mt-4 block text-xs font-semibold text-primary underline-offset-2 hover:underline">Actividad del Brain</Link>
+        </div>
       </aside>
       <section className="min-w-0"><Outlet /></section>
     </div>
+  );
+}
+
+function ThreadList({ threads }: { threads: { id: string; title: string }[] }) {
+  return (
+    <nav className="mt-2 max-h-[60vh] space-y-0.5 overflow-y-auto lg:mt-0 lg:max-h-[70vh]">
+      {threads.map((t) => (
+        <Link key={t.id} to="/chat/$threadId" params={{ threadId: t.id }} className="block truncate rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" activeProps={{ className: "bg-muted font-semibold !text-foreground" }}>{t.title}</Link>
+      ))}
+      {!threads.length && <p className="px-3 text-xs text-muted-foreground">Todavía no hay chats.</p>}
+    </nav>
   );
 }

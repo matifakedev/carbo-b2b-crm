@@ -48,4 +48,4 @@ function NewChat() {
   );
   return <ChatView key={foco ?? "new"} ws={ws} threadId={null} focus={focus} intro={intro} />;
 }
-function Stat({ n, l }: { n: number; l: string }) { return <div className="panel p-4"><div className="font-mono text-2xl font-bold">{n}</div><div className="text-sm text-muted-foreground">{l}</div></div>; }
+function Stat({ n, l }: { n: number; l: string }) { return <div className="rounded-xl bg-card px-4 py-3"><div className="font-mono text-2xl font-bold">{n}</div><div className="text-sm text-muted-foreground">{l}</div></div>; }

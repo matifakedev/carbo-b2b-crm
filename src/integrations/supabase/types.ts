@@ -480,6 +480,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          progress: string | null
           request_id: string
           status: string
           thread_id: string | null
@@ -490,6 +491,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          progress?: string | null
           request_id: string
           status?: string
           thread_id?: string | null
@@ -500,6 +502,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          progress?: string | null
           request_id?: string
           status?: string
           thread_id?: string | null
@@ -693,6 +696,161 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "carbo_context_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_attachment_uses: {
+        Row: {
+          attachment_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          thread_id: string
+          workspace_id: string
+        }
+        Insert: {
+          attachment_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          thread_id: string
+          workspace_id: string
+        }
+        Update: {
+          attachment_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          thread_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_attachment_uses_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "chat_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_attachment_uses_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "brain_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_attachment_uses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_attachments: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          extracted_text: string | null
+          extraction_id: string | null
+          file_name: string
+          format: string
+          id: string
+          limitation: string | null
+          mime: string | null
+          pages_read: number | null
+          pages_total: number | null
+          processing_started_at: string | null
+          read_condition: string | null
+          segments: Json
+          sha256: string
+          size_bytes: number
+          source_document_id: string | null
+          status: string
+          storage_path: string
+          structure: Json | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          extracted_text?: string | null
+          extraction_id?: string | null
+          file_name: string
+          format: string
+          id?: string
+          limitation?: string | null
+          mime?: string | null
+          pages_read?: number | null
+          pages_total?: number | null
+          processing_started_at?: string | null
+          read_condition?: string | null
+          segments?: Json
+          sha256: string
+          size_bytes: number
+          source_document_id?: string | null
+          status?: string
+          storage_path: string
+          structure?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          extracted_text?: string | null
+          extraction_id?: string | null
+          file_name?: string
+          format?: string
+          id?: string
+          limitation?: string | null
+          mime?: string | null
+          pages_read?: number | null
+          pages_total?: number | null
+          processing_started_at?: string | null
+          read_condition?: string | null
+          segments?: Json
+          sha256?: string
+          size_bytes?: number
+          source_document_id?: string | null
+          status?: string
+          storage_path?: string
+          structure?: Json | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_attachments_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "brain_extractions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_attachments_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "source_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_attachments_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2248,6 +2406,7 @@ export type Database = {
       source_documents: {
         Row: {
           archived_at: string | null
+          attachment_id: string | null
           conversation_id: string | null
           created_at: string
           created_by: string | null
@@ -2262,6 +2421,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          attachment_id?: string | null
           conversation_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2276,6 +2436,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          attachment_id?: string | null
           conversation_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -2289,6 +2450,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "source_documents_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "chat_attachments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "source_documents_conversation_id_fkey"
             columns: ["conversation_id"]

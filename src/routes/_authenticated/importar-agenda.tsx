@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/lib/workspace";
@@ -19,6 +19,7 @@ import {
 
 const META = "Importá la agenda IVLP desde CSV o Excel con mapeo de columnas, vista previa, validación y revisión de duplicados.";
 export const Route = createFileRoute("/_authenticated/importar-agenda")({
+  validateSearch: (s: Record<string, unknown>): { adjunto?: string } => (typeof s["adjunto"] === "string" && /^[0-9a-f-]{36}$/i.test(s["adjunto"]) ? { adjunto: s["adjunto"] } : {}),
   head: () => ({ meta: [{ title: "Importar agenda IVLP · CRM - CARBO" }, { name: "description", content: META }, { property: "og:title", content: "Importar agenda IVLP · CRM - CARBO" }, { property: "og:description", content: META }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }),
   component: ImportPage,
 });
@@ -37,6 +38,20 @@ function ImportPage() {
   const [dups, setDups] = useState<Record<number, Dup[]>>({});
   const [decisions, setDecisions] = useState<Record<number, Decision>>({});
   const [existingOrgs, setExistingOrgs] = useState<Set<string>>(new Set());
+  const { adjunto } = Route.useSearch();
+  // A spreadsheet attached in the Brain chat opens here for column mapping and duplicate review before importing.
+  useEffect(() => {
+    if (!adjunto || !ws) return;
+    let off = false;
+    void (async () => {
+      const { data: a } = await supabase.from("chat_attachments").select("file_name, storage_path, workspace_id").eq("id", adjunto).maybeSingle();
+      if (!a || a.workspace_id !== ws) { toast.error("No encontré ese adjunto en este espacio."); return; }
+      const { data: blob, error } = await supabase.storage.from("brain-files").download(a.storage_path);
+      if (error || !blob || off) { if (!off) toast.error("No se pudo abrir el adjunto."); return; }
+      void onFile(new File([blob], a.file_name));
+    })();
+    return () => { off = true; };
+  }, [adjunto, ws]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ already: boolean; summary: Record<string, number> } | null>(null);

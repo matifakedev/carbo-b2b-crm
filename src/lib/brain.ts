@@ -1,3 +1,4 @@
+import { quantityStated } from "@/lib/attachments";
 /** Pure Brain helpers (no I/O) — shared by server functions, UI and tests. */
 
 export type ProposalKind = "person" | "affiliation" | "introduction" | "need" | "task" | "project" | "participant" | "project_update";
@@ -95,7 +96,7 @@ export function sanitizeProposals(items: ProposalItem[], original: string): Prop
     }
     for (const [k, unit] of [["power_mw", "MW"], ["energy_mwh", "MWh"], ["duration_h", "h"]] as const) {
       const v = i[k];
-      if (v != null && !numberStated(original, v)) { notes.push(`Se descartó ${v} ${unit}: el número no aparece en el texto.`); i[k] = null; }
+      if (v != null && !quantityStated(original, v, unit)) { notes.push(`Se descartó ${v} ${unit}: el número con su unidad no aparece en el texto.`); i[k] = null; }
     }
     if (i.project_ref && !projectRefs.has(i.project_ref)) { notes.push(`Referencia ${i.project_ref} sin proyecto propuesto.`); i.project_ref = null; }
     if (i.kind === "participant" && !i.project_ref) notes.push("Elegí el proyecto al que pertenece.");
