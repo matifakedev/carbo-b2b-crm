@@ -10,6 +10,8 @@ import { AffiliationForm, affPayload, emptyAff, type AffDraft } from "@/componen
 import { AuditFooter, SourceTag, Tag, VerificationTag } from "@/components/crm/fields";
 import { CONTACT_LABELS, PERSON_ROLES, describeTenure, type ContactKind, type SourceType, type VerificationStatus } from "@/lib/crm";
 import { personPayload, syncContacts } from "@/lib/people";
+import { ConversationList, IntroList, PersonLinks, TaskList } from "@/components/crm/network-ui";
+import { ArrivalRoutes, CommissionInterest, History } from "@/components/crm/person-extras";
 
 export const Route = createFileRoute("/_authenticated/personas/$id")({
   head: () => ({ meta: [{ title: "Ficha de persona · CRM - CARBO" }, { name: "description", content: "Ficha de persona en el CRM de Carbo." }, { property: "og:title", content: "Ficha de persona · CRM - CARBO" }, { property: "og:description", content: "Ficha de persona en el CRM de Carbo." }] }),
@@ -93,6 +95,7 @@ function PersonDetail() {
         action={!editing && (
           <div className="flex gap-3">
             <Button variant="outline" onClick={toggleArchive}>{p.archived_at ? "Restaurar" : "Archivar"}</Button>
+            <Button variant="outline" asChild><Link to="/red" search={{ origen: `p:${id}` }}>Ver en el mapa</Link></Button>
             <Button onClick={() => setEditing(true)}>Editar</Button>
           </div>
         )} />
@@ -161,6 +164,13 @@ function PersonDetail() {
               {affs.length === 0 && <li className="py-6 text-sm text-muted-foreground">Sin afiliaciones. Una persona puede tener varias.</li>}
             </ul>
           </section>
+          <ArrivalRoutes ws={p.workspace_id} personId={id} />
+          <PersonLinks ws={p.workspace_id} personId={id} />
+          <IntroList ws={p.workspace_id} filter={{ personId: id }} allowNew defaults={{ introducer_person_id: id }} emptyText="Esta persona no participa en introducciones." />
+          <TaskList ws={p.workspace_id} filter={{ personId: id }} allowNew defaults={{ person_id: id }} />
+          <ConversationList ws={p.workspace_id} filter={{ personId: id }} allowNew initialLinks={{ people: [id] }} />
+          <CommissionInterest ws={p.workspace_id} personId={id} />
+          <History ws={p.workspace_id} personId={id} />
           <AuditFooter row={p} workspaceId={p.workspace_id} />
         </div>
       )}

@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/crm/AppShell";
 import { Button } from "@/components/ui/button";
 import { OrgForm, orgPayload, type OrgDraft } from "@/components/crm/OrgForm";
 import { AuditFooter, SourceTag, Tag, VerificationTag } from "@/components/crm/fields";
+import { ConversationList, IntroList, TaskList } from "@/components/crm/network-ui";
+import { History } from "@/components/crm/person-extras";
 import { ORG_ROLES, describeTenure, type SourceType, type VerificationStatus } from "@/lib/crm";
 
 export const Route = createFileRoute("/_authenticated/organizaciones/$id")({
@@ -48,7 +50,7 @@ function OrgDetail() {
   return (
     <>
       <PageHeader crumb="Directorio / Organizaciones" title={o.name}
-        action={!editing && <div className="flex gap-3"><Button variant="outline" onClick={toggleArchive}>{o.archived_at ? "Restaurar" : "Archivar"}</Button><Button onClick={() => setEditing(true)}>Editar</Button></div>} />
+        action={!editing && <div className="flex gap-3"><Button variant="outline" onClick={toggleArchive}>{o.archived_at ? "Restaurar" : "Archivar"}</Button><Button variant="outline" asChild><Link to="/red" search={{ origen: `o:${id}` }}>Ver en el mapa</Link></Button><Button onClick={() => setEditing(true)}>Editar</Button></div>} />
       {o.archived_at && <div className="mb-6"><Tag tone="warning">Archivada</Tag></div>}
       {editing ? <OrgForm initial={draft} submitLabel="Guardar cambios" busy={busy} onSubmit={save} onCancel={() => setEditing(false)} /> : (
         <div className="space-y-6">
@@ -77,6 +79,10 @@ function OrgDetail() {
               {o.affiliations.filter((a) => !a.archived_at).length === 0 && <li className="py-6 text-sm text-muted-foreground">Sin personas afiliadas. Se agregan desde la ficha de cada persona.</li>}
             </ul>
           </section>
+          <IntroList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ target_org_id: id }} emptyText="Ninguna introducción apunta a esta organización." />
+          <TaskList ws={o.workspace_id} filter={{ orgId: id }} allowNew defaults={{ organization_id: id }} />
+          <ConversationList ws={o.workspace_id} filter={{ orgId: id }} allowNew initialLinks={{ orgs: [id] }} />
+          <History ws={o.workspace_id} orgId={id} />
           <AuditFooter row={o} workspaceId={o.workspace_id} />
         </div>
       )}

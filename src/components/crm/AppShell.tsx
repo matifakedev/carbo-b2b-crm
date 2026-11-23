@@ -5,8 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/lib/workspace";
 
 const nav = [
+  { to: "/agenda", label: "Agenda" },
+  { to: "/red", label: "Red" },
   { to: "/personas", label: "Personas" },
   { to: "/organizaciones", label: "Organizaciones" },
+  { to: "/introducciones", label: "Introducciones" },
+  { to: "/conversaciones", label: "Conversaciones" },
   { to: "/equipo", label: "Equipo" },
 ] as const;
 

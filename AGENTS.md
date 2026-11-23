@@ -35,3 +35,6 @@ use the editor.
 - People ↔ organizations is N:N through `affiliations`; never put an org FK on `people`. Why: future introductions/projects reference people across orgs.
 - Records are archived (`archived_at`), never deleted; audit fields are set by the `set_audit_fields` trigger.
 - Duplicates are only suggested (`find_person_duplicates`, `find_org_duplicates`), never merged automatically.
+- Network edges come from `person_links`, `introductions` (each event kept separately) and `affiliations`; the graph is built client-side in `src/lib/network.ts` and traversed with simple paths (no repeated node). Why: multiple routes to one person without duplicating identities, cycles safe.
+- Unidentified introduction targets are stored as `target_description`, never as placeholder people.
+- Conversations are single rows linked through `conversation_links` (person/org/introduction). Why: one conversation, many participants, no duplicates.

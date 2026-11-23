@@ -111,6 +111,315 @@ export type Database = {
           },
         ]
       }
+      commission_interest: {
+        Row: {
+          conditions: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          person_id: string
+          status: Database["public"]["Enums"]["commission_status"]
+          updated_at: string
+          updated_by: string | null
+          wants_refer: boolean
+          wants_sell: boolean
+          workspace_id: string
+        }
+        Insert: {
+          conditions?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          person_id: string
+          status?: Database["public"]["Enums"]["commission_status"]
+          updated_at?: string
+          updated_by?: string | null
+          wants_refer?: boolean
+          wants_sell?: boolean
+          workspace_id: string
+        }
+        Update: {
+          conditions?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          person_id?: string
+          status?: Database["public"]["Enums"]["commission_status"]
+          updated_at?: string
+          updated_by?: string | null
+          wants_refer?: boolean
+          wants_sell?: boolean
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_interest_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_interest_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: true
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commission_interest_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_links: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          introduction_id: string | null
+          organization_id: string | null
+          person_id: string | null
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          introduction_id?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          introduction_id?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_links_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_links_introduction_id_fkey"
+            columns: ["introduction_id"]
+            isOneToOne: false
+            referencedRelation: "introductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_links_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          archived_at: string | null
+          body: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          occurred_at: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_at?: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          body?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          occurred_at?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      introductions: {
+        Row: {
+          archived_at: string | null
+          context: string | null
+          created_at: string
+          created_by: string | null
+          follow_up_at: string | null
+          id: string
+          introduced_person_id: string | null
+          introducer_person_id: string | null
+          kind: Database["public"]["Enums"]["intro_kind"]
+          next_action: string | null
+          occurred_at: string | null
+          owner_user_id: string | null
+          purpose: string | null
+          requested_at: string | null
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          status: Database["public"]["Enums"]["intro_status"]
+          target_description: string | null
+          target_org_id: string | null
+          target_person_id: string | null
+          updated_at: string
+          updated_by: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          follow_up_at?: string | null
+          id?: string
+          introduced_person_id?: string | null
+          introducer_person_id?: string | null
+          kind?: Database["public"]["Enums"]["intro_kind"]
+          next_action?: string | null
+          occurred_at?: string | null
+          owner_user_id?: string | null
+          purpose?: string | null
+          requested_at?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          status?: Database["public"]["Enums"]["intro_status"]
+          target_description?: string | null
+          target_org_id?: string | null
+          target_person_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          follow_up_at?: string | null
+          id?: string
+          introduced_person_id?: string | null
+          introducer_person_id?: string | null
+          kind?: Database["public"]["Enums"]["intro_kind"]
+          next_action?: string | null
+          occurred_at?: string | null
+          owner_user_id?: string | null
+          purpose?: string | null
+          requested_at?: string | null
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          status?: Database["public"]["Enums"]["intro_status"]
+          target_description?: string | null
+          target_org_id?: string | null
+          target_person_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "introductions_introduced_person_id_fkey"
+            columns: ["introduced_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "introductions_introducer_person_id_fkey"
+            columns: ["introducer_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "introductions_target_org_id_fkey"
+            columns: ["target_org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "introductions_target_person_id_fkey"
+            columns: ["target_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "introductions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           accepted_at: string | null
@@ -345,11 +654,203 @@ export type Database = {
           },
         ]
       }
+      person_links: {
+        Row: {
+          archived_at: string | null
+          context: string | null
+          created_at: string
+          created_by: string | null
+          from_person_id: string
+          id: string
+          kind: Database["public"]["Enums"]["link_kind"]
+          source_detail: string | null
+          source_type: Database["public"]["Enums"]["source_type"]
+          to_person_id: string
+          updated_at: string
+          updated_by: string | null
+          verification_status: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          from_person_id: string
+          id?: string
+          kind?: Database["public"]["Enums"]["link_kind"]
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          to_person_id: string
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          context?: string | null
+          created_at?: string
+          created_by?: string | null
+          from_person_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["link_kind"]
+          source_detail?: string | null
+          source_type?: Database["public"]["Enums"]["source_type"]
+          to_person_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          verification_status?: Database["public"]["Enums"]["verification_status"]
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_links_from_person_id_fkey"
+            columns: ["from_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_links_to_person_id_fkey"
+            columns: ["to_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          archived_at: string | null
+          completed_at: string | null
+          completed_by: string | null
+          completion_note: string | null
+          context: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          due_date: string | null
+          id: string
+          introduction_id: string | null
+          organization_id: string | null
+          owner_user_id: string | null
+          person_id: string | null
+          review_at: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          waiting_on_person_id: string | null
+          waiting_since: string | null
+          workspace_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          introduction_id?: string | null
+          organization_id?: string | null
+          owner_user_id?: string | null
+          person_id?: string | null
+          review_at?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          waiting_on_person_id?: string | null
+          waiting_since?: string | null
+          workspace_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
+          context?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          due_date?: string | null
+          id?: string
+          introduction_id?: string | null
+          organization_id?: string | null
+          owner_user_id?: string | null
+          person_id?: string | null
+          review_at?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          waiting_on_person_id?: string | null
+          waiting_since?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_introduction_id_fkey"
+            columns: ["introduction_id"]
+            isOneToOne: false
+            referencedRelation: "introductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_waiting_on_person_id_fkey"
+            columns: ["waiting_on_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
           display_name: string | null
           email: string | null
+          person_id: string | null
           role: Database["public"]["Enums"]["workspace_role"]
           user_id: string
           workspace_id: string
@@ -358,6 +859,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          person_id?: string | null
           role?: Database["public"]["Enums"]["workspace_role"]
           user_id: string
           workspace_id: string
@@ -366,11 +868,19 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string | null
+          person_id?: string | null
           role?: Database["public"]["Enums"]["workspace_role"]
           user_id?: string
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workspace_members_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workspace_members_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -406,6 +916,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      conv_ws: { Args: { _id: string }; Returns: string }
       find_org_duplicates: {
         Args: { _exclude?: string; _name: string; _ws: string }
         Returns: {
@@ -431,13 +942,48 @@ export type Database = {
           score: number
         }[]
       }
+      intro_refs_ok: {
+        Args: { i: Database["public"]["Tables"]["introductions"]["Row"] }
+        Returns: boolean
+      }
+      intro_ws: { Args: { _id: string }; Returns: string }
       is_workspace_admin: { Args: { _ws: string }; Returns: boolean }
       is_workspace_member: { Args: { _ws: string }; Returns: boolean }
       normalize_text: { Args: { t: string }; Returns: string }
+      org_ws: { Args: { _id: string }; Returns: string }
+      person_ws: { Args: { _id: string }; Returns: string }
+      set_my_person: {
+        Args: { _person: string; _ws: string }
+        Returns: undefined
+      }
+      task_refs_ok: {
+        Args: { t: Database["public"]["Tables"]["tasks"]["Row"] }
+        Returns: boolean
+      }
     }
     Enums: {
+      commission_status:
+        | "not_discussed"
+        | "interested"
+        | "talking"
+        | "agreed"
+        | "discarded"
       contact_kind: "email" | "phone" | "linkedin" | "other"
+      intro_kind: "request" | "done" | "hypothetical"
+      intro_status:
+        | "requested"
+        | "in_progress"
+        | "done"
+        | "declined"
+        | "no_response"
+      link_kind:
+        | "knows"
+        | "colleague"
+        | "internal_referral"
+        | "external_referral"
+        | "other"
       source_type: "personal" | "ivlp" | "public_research" | "hypothesis"
+      task_status: "open" | "waiting" | "done" | "cancelled"
       verification_status: "unverified" | "verified" | "doubtful"
       workspace_role: "admin" | "collaborator"
     }
@@ -567,8 +1113,31 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      commission_status: [
+        "not_discussed",
+        "interested",
+        "talking",
+        "agreed",
+        "discarded",
+      ],
       contact_kind: ["email", "phone", "linkedin", "other"],
+      intro_kind: ["request", "done", "hypothetical"],
+      intro_status: [
+        "requested",
+        "in_progress",
+        "done",
+        "declined",
+        "no_response",
+      ],
+      link_kind: [
+        "knows",
+        "colleague",
+        "internal_referral",
+        "external_referral",
+        "other",
+      ],
       source_type: ["personal", "ivlp", "public_research", "hypothesis"],
+      task_status: ["open", "waiting", "done", "cancelled"],
       verification_status: ["unverified", "verified", "doubtful"],
       workspace_role: ["admin", "collaborator"],
     },

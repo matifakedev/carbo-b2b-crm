@@ -12,7 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedAgendaRouteImport } from './routes/_authenticated/agenda'
+import { Route as AuthenticatedConversacionesRouteImport } from './routes/_authenticated/conversaciones'
 import { Route as AuthenticatedEquipoRouteImport } from './routes/_authenticated/equipo'
+import { Route as AuthenticatedIntroduccionesRouteImport } from './routes/_authenticated/introducciones'
+import { Route as AuthenticatedRedRouteImport } from './routes/_authenticated/red'
 import { Route as InvitacionTokenRouteImport } from './routes/invitacion.$token'
 import { Route as AuthenticatedOrganizacionesIndexRouteImport } from './routes/_authenticated/organizaciones.index'
 import { Route as AuthenticatedOrganizacionesIdRouteImport } from './routes/_authenticated/organizaciones.$id'
@@ -35,9 +39,31 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAgendaRoute = AuthenticatedAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedConversacionesRoute =
+  AuthenticatedConversacionesRouteImport.update({
+    id: '/conversaciones',
+    path: '/conversaciones',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEquipoRoute = AuthenticatedEquipoRouteImport.update({
   id: '/equipo',
   path: '/equipo',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedIntroduccionesRoute =
+  AuthenticatedIntroduccionesRouteImport.update({
+    id: '/introducciones',
+    path: '/introducciones',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedRedRoute = AuthenticatedRedRouteImport.update({
+  id: '/red',
+  path: '/red',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const InvitacionTokenRoute = InvitacionTokenRouteImport.update({
@@ -84,7 +110,11 @@ const AuthenticatedPersonasNuevaRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/conversaciones': typeof AuthenticatedConversacionesRoute
   '/equipo': typeof AuthenticatedEquipoRoute
+  '/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
@@ -96,7 +126,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/agenda': typeof AuthenticatedAgendaRoute
+  '/conversaciones': typeof AuthenticatedConversacionesRoute
   '/equipo': typeof AuthenticatedEquipoRoute
+  '/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
@@ -110,7 +144,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/agenda': typeof AuthenticatedAgendaRoute
+  '/_authenticated/conversaciones': typeof AuthenticatedConversacionesRoute
   '/_authenticated/equipo': typeof AuthenticatedEquipoRoute
+  '/_authenticated/introducciones': typeof AuthenticatedIntroduccionesRoute
+  '/_authenticated/red': typeof AuthenticatedRedRoute
   '/invitacion/$token': typeof InvitacionTokenRoute
   '/_authenticated/organizaciones/$id': typeof AuthenticatedOrganizacionesIdRoute
   '/_authenticated/organizaciones/nueva': typeof AuthenticatedOrganizacionesNuevaRoute
@@ -124,7 +162,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/agenda'
+    | '/conversaciones'
     | '/equipo'
+    | '/introducciones'
+    | '/red'
     | '/invitacion/$token'
     | '/organizaciones/$id'
     | '/organizaciones/nueva'
@@ -136,7 +178,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/agenda'
+    | '/conversaciones'
     | '/equipo'
+    | '/introducciones'
+    | '/red'
     | '/invitacion/$token'
     | '/organizaciones/$id'
     | '/organizaciones/nueva'
@@ -149,7 +195,11 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/agenda'
+    | '/_authenticated/conversaciones'
     | '/_authenticated/equipo'
+    | '/_authenticated/introducciones'
+    | '/_authenticated/red'
     | '/invitacion/$token'
     | '/_authenticated/organizaciones/$id'
     | '/_authenticated/organizaciones/nueva'
@@ -189,11 +239,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/agenda': {
+      id: '/_authenticated/agenda'
+      path: '/agenda'
+      fullPath: '/agenda'
+      preLoaderRoute: typeof AuthenticatedAgendaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/conversaciones': {
+      id: '/_authenticated/conversaciones'
+      path: '/conversaciones'
+      fullPath: '/conversaciones'
+      preLoaderRoute: typeof AuthenticatedConversacionesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/equipo': {
       id: '/_authenticated/equipo'
       path: '/equipo'
       fullPath: '/equipo'
       preLoaderRoute: typeof AuthenticatedEquipoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/introducciones': {
+      id: '/_authenticated/introducciones'
+      path: '/introducciones'
+      fullPath: '/introducciones'
+      preLoaderRoute: typeof AuthenticatedIntroduccionesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/red': {
+      id: '/_authenticated/red'
+      path: '/red'
+      fullPath: '/red'
+      preLoaderRoute: typeof AuthenticatedRedRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/invitacion/$token': {
@@ -249,7 +327,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgendaRoute: typeof AuthenticatedAgendaRoute
+  AuthenticatedConversacionesRoute: typeof AuthenticatedConversacionesRoute
   AuthenticatedEquipoRoute: typeof AuthenticatedEquipoRoute
+  AuthenticatedIntroduccionesRoute: typeof AuthenticatedIntroduccionesRoute
+  AuthenticatedRedRoute: typeof AuthenticatedRedRoute
   AuthenticatedOrganizacionesIdRoute: typeof AuthenticatedOrganizacionesIdRoute
   AuthenticatedOrganizacionesNuevaRoute: typeof AuthenticatedOrganizacionesNuevaRoute
   AuthenticatedPersonasIdRoute: typeof AuthenticatedPersonasIdRoute
@@ -259,7 +341,11 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgendaRoute: AuthenticatedAgendaRoute,
+  AuthenticatedConversacionesRoute: AuthenticatedConversacionesRoute,
   AuthenticatedEquipoRoute: AuthenticatedEquipoRoute,
+  AuthenticatedIntroduccionesRoute: AuthenticatedIntroduccionesRoute,
+  AuthenticatedRedRoute: AuthenticatedRedRoute,
   AuthenticatedOrganizacionesIdRoute: AuthenticatedOrganizacionesIdRoute,
   AuthenticatedOrganizacionesNuevaRoute: AuthenticatedOrganizacionesNuevaRoute,
   AuthenticatedPersonasIdRoute: AuthenticatedPersonasIdRoute,

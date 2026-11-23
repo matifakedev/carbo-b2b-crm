@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Field, Tag, selectClass } from "@/components/crm/fields";
 import { createInvitation } from "@/lib/invitations.functions";
 import { formatDateTime } from "@/lib/crm";
+import { usePeopleOptions } from "@/lib/options";
 
 export const Route = createFileRoute("/_authenticated/equipo")({
   head: () => ({ meta: [{ title: "Equipo · CRM - CARBO" }, { name: "description", content: "Miembros e invitaciones del espacio Carbo." }, { property: "og:title", content: "Equipo · CRM - CARBO" }, { property: "og:description", content: "Miembros e invitaciones del espacio Carbo." }] }),
@@ -24,10 +25,18 @@ function Team() {
   const [email, setEmail] = useState(""); const [role, setRole] = useState<"collaborator" | "admin">("collaborator");
   const [link, setLink] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const isAdmin = current?.role === "admin";
+  const { userId } = useWorkspace();
+  const { data: people = [] } = usePeopleOptions(current?.id);
+  async function setMe(personId: string) {
+    if (!current) return;
+    const { error } = await supabase.rpc("set_my_person", { _ws: current.id, _person: (personId || null) as string });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Vínculo guardado"); qc.invalidateQueries({ queryKey: ["team"] }); qc.invalidateQueries({ queryKey: ["graph"] });
+  }
 
   const { data: members = [] } = useQuery({
     queryKey: ["team", current?.id], enabled: !!current,
-    queryFn: async () => (await supabase.from("workspace_members").select("user_id, email, display_name, role, created_at").eq("workspace_id", current!.id).order("created_at")).data ?? [],
+    queryFn: async () => (await supabase.from("workspace_members").select("user_id, email, display_name, role, created_at, person_id").eq("workspace_id", current!.id).order("created_at")).data ?? [],
   });
   const { data: invites = [] } = useQuery({
     queryKey: ["invites", current?.id], enabled: !!current && isAdmin,
@@ -58,7 +67,15 @@ function Team() {
             {members.map((m) => (
               <li key={m.user_id} className="flex items-center justify-between py-3">
                 <div><div className="font-medium">{m.display_name || m.email}</div><div className="font-mono text-xs text-muted-foreground">{m.email}</div></div>
-                <Tag tone={m.role === "admin" ? "primary" : "neutral"}>{m.role === "admin" ? "Administrador" : "Colaborador"}</Tag>
+                <div className="flex items-center gap-3">
+                  {m.user_id === userId ? (
+                    <select aria-label="Esta persona soy yo" className={`${selectClass} h-9 w-48`} value={m.person_id ?? ""} onChange={(e) => setMe(e.target.value)}>
+                      <option value="">Esta persona soy yo…</option>
+                      {people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                    </select>
+                  ) : <span className="font-mono text-xs text-muted-foreground">{people.find((p) => p.id === m.person_id)?.full_name ?? "sin ficha"}</span>}
+                  <Tag tone={m.role === "admin" ? "primary" : "neutral"}>{m.role === "admin" ? "Administrador" : "Colaborador"}</Tag>
+                </div>
               </li>
             ))}
           </ul>
