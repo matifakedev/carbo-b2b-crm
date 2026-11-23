@@ -37,7 +37,7 @@ export async function fcSearch(key: string, query: string): Promise<Source[]> {
   const j = (await r.json()) as { data?: { web?: { url: string; title?: string; markdown?: string; metadata?: Meta }[] } };
   return (j.data?.web ?? []).filter((w) => w.markdown?.trim()).map((w) => ({ url: w.url, title: w.title ?? (w.metadata?.["title"] as string) ?? null, published_at: pubDate(w.metadata), markdown: w.markdown!.slice(0, MAX_SRC), provided_by_user: false }));
 }
-async function fcScrape(key: string, url: string): Promise<Source> {
+export async function fcScrape(key: string, url: string): Promise<Source> {
   const r = await fetch(`${FC}/scrape`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }) });
   if (!r.ok) { const t = await r.text(); throw new Error(`No se pudo leer ${url} [${r.status}]: ${t.slice(0, 200)}`); }
@@ -127,3 +127,81 @@ export async function executeResearch(sb: any, data: ResearchInput) {
     }
     return finish(errors.length ? "partial" : "done", { source_document_id: doc.id, extraction_id: ex?.id ?? null, fit: fit as never, intro_draft: intro });
   }
+
+export type ProspectInput = { workspace_id: string; organization_id: string; place: string | null; commercial_profile: string | null; budget?: Record<string, unknown> };
+
+/** Multi-round prospecting through an institution's network. Writes a research_runs row and, only for selected candidates, reviewable proposals. */
+export async function executeProspecting(sb: any, data: ProspectInput) {
+  const P = await import("@/lib/prospecting");
+  const budget = P.resolveBudget(data.budget as never);
+  const meter = new P.Meter(budget);
+  const { data: org } = await sb.from("organizations").select("id, name, location, website").eq("id", data.organization_id).eq("workspace_id", data.workspace_id).maybeSingle();
+  if (!org) throw new Error("Organización no encontrada en este espacio");
+  const place = data.place ?? org.location ?? null;
+  const { data: caps } = await sb.from("carbo_capabilities").select("id, title, applications, limits, evidence, communicable, is_commercial_sensitive, status").eq("workspace_id", data.workspace_id).is("archived_at", null);
+  const approved = usableCapabilities((caps ?? []) as Capability[]);
+  const profile = approved.length
+    ? { origin: "capacidades aprobadas", text: approved.map((c) => `${c.title}: ${c.applications ?? ""}`).join("\n") }
+    : { origin: "perfil provisional aportado por el usuario", text: data.commercial_profile?.trim() || "Baterías industriales / almacenamiento de energía para grandes consumidores (plantas, data centers, logística, energía)." };
+  const { data: run, error } = await sb.from("research_runs").insert({ workspace_id: data.workspace_id, organization_id: org.id, focus: "Prospección por red institucional", query: P.NETWORK_QUERIES(org.name, place).join(" | "), model: MODEL }).select("id").single();
+  if (error) throw new Error(error.message);
+  const key = process.env["FIRECRAWL_API_KEY"];
+  const errors: string[] = []; const sources: Source[] = [];
+  const addSources = (xs: Source[]) => { for (const x of xs) if (!sources.some((s) => s.url === x.url)) sources.push(x); };
+  let execution: import("@/lib/prospecting").ExecutionStatus = "completed";
+  let candidates: import("@/lib/prospecting").Candidate[] = []; let recommendation = "";
+
+  if (!key) { execution = "search_unavailable"; errors.push("La búsqueda web no está configurada: no se consultó internet."); }
+  else {
+    // Round 1: institution network sources
+    if (org.website && meter.take("scrape")) { try { addSources([await fcScrape(key, org.website)]); } catch (e) { errors.push((e as Error).message); } }
+    for (const q of P.NETWORK_QUERIES(org.name, place)) { if (!meter.take("query")) break; try { addSources(await fcSearch(key, q)); } catch (e) { errors.push((e as Error).message); } }
+    const netCount = sources.length;
+    // Round 2: candidate selection by commercial profile
+    let picked: { company: string }[] = [];
+    if (netCount && meter.take("llm")) {
+      const block = sources.map((s, i) => `<fuente n="${i}" url="${s.url}">\n${s.markdown.slice(0, 6000)}\n</fuente>`).join("\n");
+      const r = await llm(P.CANDIDATES_SYSTEM, `Institución: ${org.name}${place ? ` (${place})` : ""}\nPerfil comercial (${profile.origin}):\n${profile.text}\n\n${block}`, "candidates", P.CANDIDATES_SCHEMA);
+      if (r.ok) picked = ((r.json as { candidates: { company: string; relevance: string }[] }).candidates ?? []).filter((c) => c.relevance === "high" || c.relevance === "medium").slice(0, 8);
+      else errors.push(r.message);
+    }
+    // Round 3: research each candidate in its own sources
+    for (const c of picked) { if (!meter.take("query")) break; try { addSources((await fcSearch(key, P.candidateQuery(c.company, place))).slice(0, 2)); } catch (e) { errors.push((e as Error).message); } }
+    // Round 4: prioritize up to N and prepare intro requests
+    if (picked.length && meter.take("llm")) {
+      const block = sources.map((s, i) => `<fuente n="${i}" url="${s.url}"${s.published_at ? ` publicada="${s.published_at}"` : ""}>\n${s.markdown.slice(0, 4000)}\n</fuente>`).join("\n");
+      const r = await llm(P.FINAL_SYSTEM, `Institución: ${org.name}${place ? ` (${place})` : ""}\nCandidatas preseleccionadas: ${picked.map((p) => p.company).join(", ")}\nPerfil comercial (${profile.origin}):\n${profile.text}\nMáximo: ${budget.max_candidates}\n\n${block}`, "prospects", P.FINAL_SCHEMA);
+      if (r.ok) {
+        const j = r.json as { candidates: import("@/lib/prospecting").RawCandidate[]; recommendation: string };
+        candidates = P.finalizeCandidates(j.candidates ?? [], sources, { hasApprovedCapabilities: approved.length > 0, max: budget.max_candidates });
+        recommendation = softenClaims(j.recommendation ?? "");
+      } else errors.push(r.message);
+    }
+    if (meter.exhausted.length) execution = "budget_exhausted";
+    else if (!sources.length) execution = "failed";
+  }
+  const { sufficiency, gaps } = P.assessSufficiency(candidates, budget.max_candidates);
+  if (meter.exhausted.length) gaps.push(`Presupuesto agotado (${meter.exhausted.join(", ")}): resultado parcial.`);
+  if (!approved.length) gaps.push("No hay capacidades de Carbo aprobadas: las hipótesis no validan encaje técnico.");
+
+  // CRM proposals only for selected candidates, from their verified evidence
+  let proposals = 0; let docId: string | null = null; let exId: string | null = null;
+  const evid = candidates.flatMap((c) => [c.linkage.verified ? `[${c.company}] Vinculación: ${c.linkage.quote} (${c.linkage.url})` : null, c.signal.verified ? `[${c.company}] Señal: ${c.signal.quote} (${c.signal.url})` : null]).filter(Boolean).join("\n");
+  if (evid) {
+    const docText = `Prospección vía ${org.name} · consultada ${new Date().toISOString().slice(0, 10)}\n\n${evid}`;
+    const { data: doc } = await sb.from("source_documents").insert({ workspace_id: data.workspace_id, kind: "research", title: `Prospección · ${org.name} · ${new Date().toISOString().slice(0, 10)}`, original_text: docText, organization_id: org.id }).select("id").single();
+    docId = doc?.id ?? null;
+    if (doc && meter.take("llm")) {
+      const { data: ex } = await sb.from("brain_extractions").insert({ workspace_id: data.workspace_id, source_document_id: doc.id, model: MODEL }).select("id").single();
+      exId = ex?.id ?? null;
+      const pr = await llm(EXTRACTION_SYSTEM + RESEARCH_EXTRACTION_ADDENDUM, `<documento tipo="research" organizacion="${org.name}">\n${docText}\n</documento>`, "extraction", EXTRACTION_SCHEMA);
+      if (pr.ok && ex) {
+        const items = sanitizeProposals(((pr.json as { items?: ProposalItem[] }).items ?? []).filter((i) => ["need", "project", "affiliation"].includes(i.kind)), docText);
+        if (items.length) { await sb.from("brain_proposals").insert(items.map((i, position) => ({ workspace_id: data.workspace_id, extraction_id: ex.id, kind: i.kind, proposed: i as never, evidence: i.evidence, ambiguity: i.ambiguity, position }))); proposals = items.length; }
+      }
+    }
+  }
+  const result = { kind: "prospecting", execution, sufficiency, gaps, recommendation, candidates, profile_origin: profile.origin, usage: meter.usage(), budget, sources: sources.map((s) => ({ url: s.url, title: s.title, published_at: s.published_at })) };
+  await sb.from("research_runs").update({ status: execution === "completed" ? "done" : execution === "budget_exhausted" ? "partial" : execution === "search_unavailable" ? "not_configured" : "failed", search_error: errors.length ? errors.slice(0, 5).join(" · ") : null, fit: result as never, source_document_id: docId, extraction_id: exId }).eq("id", run.id);
+  return { run_id: run.id, organization: org.name, errors, proposals, ...result };
+}

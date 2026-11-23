@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sendBrainMessage, type ActionCard, type Question, type ResearchCard } from "@/lib/chat.functions";
 import { Button } from "@/components/ui/button";
+import { Markdown, ProspectCard } from "@/components/crm/ProspectCard";
 import { Textarea } from "@/components/ui/textarea";
 
 type Msg = { id: string; role: "user" | "assistant"; content: string; created_at: string; parts: { actions?: ActionCard[]; question?: Question | null; error?: string | null; research?: ResearchCard[] } };
@@ -66,10 +67,11 @@ function MessageView({ m }: { m: Msg }) {
   return (
     <div className="max-w-[90%] space-y-3">
       <div className="label-mono text-primary">Brain</div>
-      <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
+      <Markdown text={m.content} />
       {m.parts?.research?.map((r) => (
         <div key={r.run_id} className="rounded-sm border border-border bg-card p-3 text-sm">
-          <div className="label-mono">Research · {r.organization} · {r.status === "done" ? "completo" : r.status === "not_configured" ? "búsqueda web no configurada" : r.status === "partial" ? "parcial" : "falló"}</div>
+          <div className="label-mono">{r.prospect ? "Prospección" : "Research"} · {r.organization} · {r.prospect ? "" : r.status === "done" ? "completo" : r.status === "not_configured" ? "búsqueda web no configurada" : r.status === "partial" ? "parcial" : "falló"}</div>
+          {r.prospect && <div className="mt-2"><ProspectCard p={r.prospect} /></div>}
           {r.errors.length > 0 && <div className="mt-1 text-xs text-destructive">{r.errors.join(" · ")}</div>}
           <div className="mt-2 flex flex-wrap gap-3 text-xs">
             <Link to="/organizaciones/$id" params={{ id: r.organization_id }} className="text-primary underline">Ver fuentes y hallazgos</Link>

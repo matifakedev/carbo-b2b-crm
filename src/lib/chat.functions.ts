@@ -9,7 +9,7 @@ const MAX_STEPS = 10;
 type Sb = any;
 export type ActionCard = { id: string; summary: string; table: string; record_id: string; op: "create" | "update"; link: { type: string; id: string } | null };
 export type Question = { question: string; options: string[] };
-export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number };
+export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number; prospect?: import("@/lib/prospecting").ProspectView };
 type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[] };
 
 const LINK: Record<string, string> = { people: "person", organizations: "organization", projects: "project", tasks: "task" };
@@ -217,6 +217,16 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       const proposals = run?.extraction_id ? (await sb.from("brain_proposals").select("id", { count: "exact", head: true }).eq("extraction_id", run.extraction_id)).count ?? 0 : 0;
       c.research.push({ run_id: r.run_id, organization_id: orgId, organization: org?.name ?? "", status: r.status, errors: r.errors, proposals });
       return { status: r.status, errors: r.errors, findings: researchForChat(f ?? []), fit: run?.fit ?? null, intro_draft: run?.intro_draft ?? null, proposals_pending_review: proposals };
+    }
+    case "prospect_network": {
+      if (c.research.length) return { error: "Ya se ejecutó una investigación en este turno." };
+      if (!(await inWs(c, "organizations", a["organization_id"]))) return { error: "organización inexistente: creala o buscala primero" };
+      const { executeProspecting } = await import("@/lib/research.server");
+      const r = await executeProspecting(sb, { workspace_id: c.ws, organization_id: String(a["organization_id"]), place: nn(a["place"]), commercial_profile: nn(a["commercial_profile"]),
+        budget: { max_candidates: a["max_candidates"], max_queries: a["max_queries"], max_seconds: a["max_seconds"] } });
+      const view = { execution: r.execution, sufficiency: r.sufficiency, gaps: r.gaps, recommendation: r.recommendation, candidates: r.candidates, profile_origin: r.profile_origin, usage: r.usage, sources: r.sources };
+      c.research.push({ run_id: r.run_id, organization_id: String(a["organization_id"]), organization: r.organization, status: r.execution, errors: r.errors, proposals: r.proposals, prospect: view });
+      return { ...view, sources: undefined, proposals_pending_review: r.proposals, errors: r.errors };
     }
     case "ask_user": {
       c.question = { question: String(a["question"] ?? ""), options: ((a["options"] as string[]) ?? []).slice(0, 6) };
