@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { reportUndo } from "@/components/crm/BrainChat";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +18,7 @@ function Activity() {
   const { data: names = {} } = useMemberNames(ws);
   const { data = [] } = useQuery({ queryKey: ["brain-activity", ws], enabled: !!ws, queryFn: async () => (await supabase.from("brain_actions").select("*").eq("workspace_id", ws!).order("created_at", { ascending: false }).limit(200)).data ?? [] });
   if (!ws) return null;
-  async function undo(id: string) { const { error } = await supabase.rpc("brain_undo_action", { _id: id }); if (error) toast.error(error.message); else { toast.success("Deshecho"); qc.invalidateQueries(); } }
+  async function undo(id: string) { const { data, error } = await supabase.rpc("brain_undo_action", { _id: id }); if (error) toast.error(error.message); else { reportUndo(data); qc.invalidateQueries(); } }
   return (
     <>
       <PageHeader crumb={`Brain / ${current?.name}`} title="Actividad del Brain" />

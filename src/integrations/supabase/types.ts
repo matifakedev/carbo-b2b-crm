@@ -129,7 +129,9 @@ export type Database = {
           created_by: string | null
           id: string
           op: string
+          operation_id: string | null
           record_id: string
+          seq: number
           summary: string
           table_name: string
           thread_id: string | null
@@ -146,7 +148,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           op: string
+          operation_id?: string | null
           record_id: string
+          seq?: number
           summary: string
           table_name: string
           thread_id?: string | null
@@ -163,7 +167,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           op?: string
+          operation_id?: string | null
           record_id?: string
+          seq?: number
           summary?: string
           table_name?: string
           thread_id?: string | null
@@ -304,6 +310,41 @@ export type Database = {
           },
         ]
       }
+      brain_operations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          op_key: string
+          result: Json
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          op_key: string
+          result: Json
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          op_key?: string
+          result?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_operations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_proposals: {
         Row: {
           ambiguity: string | null
@@ -428,6 +469,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brain_queries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_requests: {
+        Row: {
+          created_at: string
+          id: string
+          request_id: string
+          status: string
+          thread_id: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_id: string
+          status?: string
+          thread_id?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_id?: string
+          status?: string
+          thread_id?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_requests_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2381,6 +2463,10 @@ export type Database = {
         Args: { _file: string; _hash: string; _rows: Json; _ws: string }
         Returns: Json
       }
+      brain_apply: {
+        Args: { _op_key: string; _steps: Json; _thread: string; _ws: string }
+        Returns: Json
+      }
       brain_undo_action: { Args: { _id: string }; Returns: Json }
       confirm_extraction: {
         Args: { _decisions: Json; _extraction: string }
@@ -2419,12 +2505,29 @@ export type Database = {
       intro_ws: { Args: { _id: string }; Returns: string }
       is_workspace_admin: { Args: { _ws: string }; Returns: boolean }
       is_workspace_member: { Args: { _ws: string }; Returns: boolean }
+      link_my_person: {
+        Args: { _expected: string; _person: string; _ws: string }
+        Returns: string
+      }
+      live_references: {
+        Args: { _exclude: string[]; _id: string; _table: string }
+        Returns: string
+      }
       normalize_text: { Args: { t: string }; Returns: string }
       opp_ws: { Args: { _id: string }; Returns: string }
       org_ws: { Args: { _id: string }; Returns: string }
       owns_brain_thread: { Args: { _id: string }; Returns: boolean }
       person_ws: { Args: { _id: string }; Returns: string }
       project_ws: { Args: { _id: string }; Returns: string }
+      redeem_invitation: {
+        Args: {
+          _display: string
+          _email: string
+          _token_hash: string
+          _user: string
+        }
+        Returns: Json
+      }
       revert_import_batch: { Args: { _batch: string }; Returns: Json }
       set_my_person: {
         Args: { _person: string; _ws: string }

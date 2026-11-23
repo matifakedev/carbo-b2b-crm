@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/crm/fields";
 import { AuthLayout } from "./auth";
-import { acceptInvitation, getInvitation } from "@/lib/invitations.functions";
+import { acceptInvitation, acceptInvitationAsUser, getInvitation } from "@/lib/invitations.functions";
 
 export const Route = createFileRoute("/invitacion/$token")({
   ssr: false,
@@ -22,6 +22,18 @@ function AcceptPage() {
   const { data: inv, isLoading } = useQuery({ queryKey: ["inv", token], queryFn: () => get({ data: { token } }) });
   const [name, setName] = useState(""); const [pw, setPw] = useState(""); const [pw2, setPw2] = useState("");
   const [err, setErr] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const acceptAsUser = useServerFn(acceptInvitationAsUser);
+  const { data: session } = useQuery({ queryKey: ["inv-session"], queryFn: async () => (await supabase.auth.getUser()).data.user ?? null });
+  const [li, setLi] = useState({ email: "", pw: "" });
+
+  async function acceptExisting(e?: FormEvent) {
+    e?.preventDefault(); setBusy(true); setErr(null);
+    try {
+      if (!session) { const { error } = await supabase.auth.signInWithPassword({ email: li.email, password: li.pw }); if (error) throw error; }
+      await acceptAsUser({ data: { token } });
+      navigate({ to: "/chat" });
+    } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -47,6 +59,21 @@ function AcceptPage() {
         {err && <p role="alert" className="text-sm text-destructive">{err}</p>}
         <Button type="submit" className="w-full" disabled={busy}>{busy ? "Creando…" : "Crear acceso"}</Button>
       </form>
+      <div className="mt-8 border-t border-border pt-6">
+        <p className="mb-3 text-sm text-muted-foreground">¿Ya tenés cuenta con <span className="font-mono">{inv.email}</span>?</p>
+        {session ? (
+          <div className="space-y-2">
+            <p className="text-sm">Sesión iniciada como <span className="font-mono">{session.email}</span>.</p>
+            <Button type="button" variant="outline" className="w-full" disabled={busy} onClick={() => void acceptExisting()}>Aceptar con esta cuenta</Button>
+          </div>
+        ) : (
+          <form onSubmit={acceptExisting} className="space-y-3">
+            <Field label="Email" htmlFor="le"><Input id="le" type="email" autoComplete="email" required value={li.email} onChange={(e) => setLi({ ...li, email: e.target.value })} /></Field>
+            <Field label="Contraseña" htmlFor="lp"><Input id="lp" type="password" autoComplete="current-password" required value={li.pw} onChange={(e) => setLi({ ...li, pw: e.target.value })} /></Field>
+            <Button type="submit" variant="outline" className="w-full" disabled={busy}>Iniciar sesión y aceptar</Button>
+          </form>
+        )}
+      </div>
     </AuthLayout>
   );
 }

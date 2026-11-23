@@ -50,6 +50,20 @@
       "when": 1795474433552,
       "tag": "0006_undo_person_links",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795476627396,
+      "tag": "0007_reliable_brain_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795476669715,
+      "tag": "0008_brain_identity_link_fix",
+      "breakpoints": true
     }
   ]
 }

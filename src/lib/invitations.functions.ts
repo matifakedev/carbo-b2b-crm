@@ -72,16 +72,6 @@ export const acceptInvitation = createServerFn({ method: "POST" })
     if (!found) throw new Error("La invitación no es válida, ya se usó o venció.");
     const { inv, supabaseAdmin } = found;
 
-    // Claim first so the link can't be used twice concurrently.
-    const { data: claimed } = await supabaseAdmin
-      .from("invitations")
-      .update({ accepted_at: new Date().toISOString() })
-      .eq("id", inv.id)
-      .is("accepted_at", null)
-      .select("id")
-      .maybeSingle();
-    if (!claimed) throw new Error("La invitación ya fue utilizada.");
-
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: inv.email,
       password: data.password,
@@ -89,23 +79,27 @@ export const acceptInvitation = createServerFn({ method: "POST" })
       user_metadata: { display_name: data.displayName },
     });
     if (error || !created.user) {
-      await supabaseAdmin.from("invitations").update({ accepted_at: null }).eq("id", inv.id);
       throw new Error(
-        error?.message?.includes("already") ? "Ya existe una cuenta con ese email. Iniciá sesión." : error?.message?.includes("weak") ? "Esa contraseña es demasiado común o filtrada. Elegí otra." : "No se pudo crear la cuenta.",
+        error?.message?.includes("already") ? "Ya existe una cuenta con ese email. Iniciá sesión y aceptá la invitación con tu cuenta." : error?.message?.includes("weak") ? "Esa contraseña es demasiado común o filtrada. Elegí otra." : "No se pudo crear la cuenta.",
       );
     }
-    const userId = created.user.id;
-    // Membership in the invited workspace plus the demo workspace.
-    const { data: demo } = await supabaseAdmin.from("workspaces").select("id").eq("is_demo", true);
-    const rows = [inv.workspace_id, ...(demo ?? []).map((d) => d.id)]
-      .filter((v, i, a) => a.indexOf(v) === i)
-      .map((wsId) => ({
-        workspace_id: wsId,
-        user_id: userId,
-        role: wsId === inv.workspace_id ? inv.role : ("collaborator" as const),
-        email: inv.email,
-        display_name: data.displayName || null,
-      }));
-    await supabaseAdmin.from("workspace_members").upsert(rows, { onConflict: "workspace_id,user_id" });
+    // Membership + acceptance in one transaction; the invitation is only marked used if membership succeeded.
+    const { error: rErr } = await supabaseAdmin.rpc("redeem_invitation", { _token_hash: await sha256Hex(data.token), _user: created.user.id, _email: inv.email, _display: data.displayName });
+    if (rErr) throw new Error(`La cuenta se creó pero no se pudo completar el acceso: ${rErr.message}. Iniciá sesión y volvé a abrir el enlace.`);
     return { email: inv.email };
+  });
+
+/** Signed-in: redeem an invitation with an existing account; the session email must match the invited email. */
+export const acceptInvitationAsUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { token: string }) => ({ token: String(input.token).slice(0, 128) }))
+  .handler(async ({ data, context }) => {
+    const { data: u, error: uErr } = await context.supabase.auth.getUser();
+    const email = u?.user?.email;
+    if (uErr || !email) throw new Error("No pude verificar tu sesión.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const display = String((u.user.user_metadata as Record<string, unknown> | null)?.["display_name"] ?? "");
+    const { data: r, error } = await supabaseAdmin.rpc("redeem_invitation", { _token_hash: await sha256Hex(data.token), _user: context.userId, _email: email, _display: display });
+    if (error) throw new Error(error.message);
+    return r as { already: boolean; email: string };
   });

@@ -32,7 +32,10 @@ export function ChatView({ ws, threadId, focus, intro }: { ws: string; threadId:
     if (!text.trim() || pending) return false;
     setPending(text);
     try {
-      const r = await send({ data: { workspace_id: ws, thread_id: threadId, text, focus: focus ?? null } });
+      const request_id = crypto.randomUUID();
+      const payload = { data: { workspace_id: ws, thread_id: threadId, text, focus: focus ?? null, request_id } };
+      // A lost response is retried with the same request id; the server never repeats effects.
+      const r = await send(payload).catch((e: Error) => (/fetch|network|Failed/i.test(e.message) ? send(payload) : Promise.reject(e)));
       await qc.invalidateQueries({ queryKey: ["brain-messages", r.thread_id] });
       qc.invalidateQueries({ queryKey: ["brain-threads"] });
       qc.invalidateQueries({ predicate: (q) => !String(q.queryKey[0]).startsWith("brain-") });
@@ -93,9 +96,9 @@ function ActionList({ actions }: { actions: ActionCard[] }) {
     queryFn: async () => Object.fromEntries(((await supabase.from("brain_actions").select("id, undone_at").in("id", ids)).data ?? []).map((x) => [x.id, x.undone_at])),
   });
   async function undo(id: string) {
-    const { error } = await supabase.rpc("brain_undo_action", { _id: id });
+    const { data, error } = await supabase.rpc("brain_undo_action", { _id: id });
     if (error) { toast.error(error.message); return; }
-    toast.success("Deshecho"); qc.invalidateQueries();
+    reportUndo(data); qc.invalidateQueries();
   }
   return (
     <ul className="divide-y divide-border rounded-sm border border-border">
@@ -149,4 +152,12 @@ function Composer({ busy, onSend }: { busy: boolean; onSend: (t: string) => Prom
       </div>
     </div>
   );
+}
+
+const TABLE_ES: Record<string, string> = { tasks: "tareas", people: "personas", organizations: "organizaciones", affiliations: "afiliaciones", person_contacts: "contactos", person_links: "vínculos", needs: "necesidades", conversation_links: "conversaciones", introductions: "introducciones", project_participants: "proyectos", project_organizations: "proyectos", workspace_members: "la ficha de un miembro", meeting_participants: "reuniones", commission_interest: "comisiones" };
+export function reportUndo(data: unknown) {
+  const r = (data ?? {}) as { reverted?: { summary: string }[]; kept?: { summary: string; reason: string }[] };
+  const kept = r.kept ?? [];
+  if (!kept.length) { toast.success(`Deshecho${r.reverted?.length ? ` (${r.reverted.length} cambios)` : ""}`); return; }
+  toast.warning(`Deshice ${r.reverted?.length ?? 0} cambios y conservé ${kept.length}`, { description: kept.map((k) => `${k.summary}: ${k.reason.replace(/se usa en (\w+)/, (_, t: string) => `se usa en ${TABLE_ES[t] ?? t}`)}`).join(" · "), duration: 12000 });
 }

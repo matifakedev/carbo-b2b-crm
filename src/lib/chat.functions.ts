@@ -10,14 +10,25 @@ type Sb = any;
 export type ActionCard = { id: string; summary: string; table: string; record_id: string; op: "create" | "update"; link: { type: string; id: string } | null };
 export type Question = { question: string; options: string[] };
 export type ResearchCard = { run_id: string; organization_id: string; organization: string; status: string; errors: string[]; proposals: number; prospect?: import("@/lib/prospecting").ProspectView };
-type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[] };
+type Ctx = { sb: Sb; ws: string; uid: string; thread: string; userText: string; actions: ActionCard[]; question: Question | null; detail: string; research: ResearchCard[]; request: string };
 
 const LINK: Record<string, string> = { people: "person", organizations: "organization", projects: "project", tasks: "task" };
 
-async function logAction(c: Ctx, table: string, record_id: string, op: "create" | "update", summary: string, before: unknown = null, after: unknown = null, link?: { type: string; id: string }) {
-  const { data, error } = await c.sb.from("brain_actions").insert({ workspace_id: c.ws, thread_id: c.thread, table_name: table, record_id, op, summary, before, after }).select("id").single();
-  if (error) throw new Error(error.message);
-  c.actions.push({ id: data.id, summary, table, record_id, op, link: link ?? (LINK[table] ? { type: LINK[table]!, id: record_id } : null) });
+export type Step = { op: "insert" | "update" | "set_my_person"; table?: string; id?: string; ref?: string; values?: Record<string, unknown>; summary: string; link_type?: string | null; link_id?: string; link_ref?: string; person_id?: string; person_ref?: string };
+type ApplyResult = { ok: boolean; replayed?: boolean; refs: Record<string, string>; results: { action_id: string; id: string; table: string; op: "create" | "update"; summary: string; link_type: string | null; link_id: string | null }[] };
+/** One tool call = one atomic DB operation (changes + audit + undo rows). Idempotent per request + call. */
+async function apply(c: Ctx, tool: string, args: Record<string, unknown>, steps: Step[]): Promise<ApplyResult> {
+  const op_key = await opKey(c.request, tool, args);
+  const { data, error } = await c.sb.rpc("brain_apply", { _ws: c.ws, _thread: c.thread, _op_key: op_key, _steps: steps });
+  if (error) throw new Error(`No se guardó nada: ${error.message}`);
+  const r = data as ApplyResult;
+  for (const x of r.results) if (!c.actions.some((y) => y.id === x.action_id)) c.actions.push({ id: x.action_id, summary: x.summary, table: x.table, record_id: x.id, op: x.op, link: x.link_type && x.link_id ? { type: x.link_type, id: x.link_id } : null });
+  return r;
+}
+export async function opKey(request: string, tool: string, args: Record<string, unknown>) {
+  const raw = `${request}|${tool}|${JSON.stringify(args, Object.keys(args).sort())}`;
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 const nn = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 async function inWs(c: Ctx, table: string, id: unknown) {
@@ -57,15 +68,13 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
         const { data: d } = await sb.rpc("find_person_duplicates", { _ws: c.ws, _name: full_name, _contacts: [a["email"], a["phone"]].filter((x) => typeof x === "string" && x) });
         if (d?.length) return { created: false, needs_confirmation: true, candidates: d.map((x: { id: string; full_name: string; reason: string; archived: boolean }) => ({ id: x.id, full_name: x.full_name, reason: x.reason, archived: x.archived })) };
       }
-      const { data, error } = await sb.from("people").insert({ workspace_id: c.ws, full_name, relationship_context: nn(a["relationship_context"]), location: nn(a["location"]), source_type: "personal", source_detail: c.detail }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "people", data.id, "create", `Creé la persona ${full_name}`);
+      const steps: Step[] = [{ ref: "p", table: "people", op: "insert", values: { full_name, relationship_context: nn(a["relationship_context"]), location: nn(a["location"]), source_type: "personal", source_detail: c.detail }, summary: `Creé la persona ${full_name}`, link_type: "person", link_ref: "p" }];
       for (const [kind, v] of [["email", a["email"]], ["phone", a["phone"]]] as const) {
         const value = nn(v); if (!value) continue;
-        const { data: pc } = await sb.from("person_contacts").insert({ workspace_id: c.ws, person_id: data.id, kind, value, source_detail: c.detail }).select("id").single();
-        if (pc) await logAction(c, "person_contacts", pc.id, "create", `Agregué ${kind === "email" ? "el email" : "el teléfono"} ${value} a ${full_name}`, null, null, { type: "person", id: data.id });
+        steps.push({ table: "person_contacts", op: "insert", values: { person_id: "$ref:p", kind, value, source_detail: c.detail }, summary: `Agregué ${kind === "email" ? "el email" : "el teléfono"} ${value} a ${full_name}`, link_type: "person", link_ref: "p" });
       }
-      return { created: true, id: data.id };
+      const r = await apply(c, name, a, steps);
+      return { created: true, id: r.refs["p"] };
     }
     case "create_organization": {
       const n = nn(a["name"]); if (!n) return { error: "falta el nombre" };
@@ -73,51 +82,68 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
         const { data: d } = await sb.rpc("find_org_duplicates", { _ws: c.ws, _name: n });
         if (d?.length) return { created: false, needs_confirmation: true, candidates: d };
       }
-      const { data, error } = await sb.from("organizations").insert({ workspace_id: c.ws, name: n, location: nn(a["location"]), website: nn(a["website"]), description: nn(a["description"]), source_type: "personal", source_detail: c.detail }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "organizations", data.id, "create", `Creé la organización ${n}`);
-      return { created: true, id: data.id };
+      const r = await apply(c, name, a, [{ ref: "o", table: "organizations", op: "insert", values: { name: n, location: nn(a["location"]), website: nn(a["website"]), description: nn(a["description"]), source_type: "personal", source_detail: c.detail }, summary: `Creé la organización ${n}`, link_type: "organization", link_ref: "o" }]);
+      return { created: true, id: r.refs["o"] };
     }
     case "add_affiliation": {
-      if (!(await inWs(c, "people", a["person_id"])) || !(await inWs(c, "organizations", a["organization_id"]))) return { error: "persona u organización no encontrada" };
+      const { data: pe } = await sb.from("people").select("full_name").eq("id", a["person_id"]).eq("workspace_id", c.ws).maybeSingle();
+      const { data: or } = await sb.from("organizations").select("name").eq("id", a["organization_id"]).eq("workspace_id", c.ws).maybeSingle();
+      if (!pe || !or) return { error: "persona u organización no encontrada" };
       const { data: ex } = await sb.from("affiliations").select("id").eq("person_id", a["person_id"]).eq("organization_id", a["organization_id"]).is("archived_at", null).maybeSingle();
       if (ex) return { exists: true, id: ex.id };
-      const { data, error } = await sb.from("affiliations").insert({ workspace_id: c.ws, person_id: a["person_id"], organization_id: a["organization_id"], title: nn(a["title"]), source_type: "personal", source_detail: c.detail }).select("id, people(full_name), organizations(name)").single();
-      if (error) return { error: error.message };
-      await logAction(c, "affiliations", data.id, "create", `Vinculé a ${data.people?.full_name} con ${data.organizations?.name}${nn(a["title"]) ? ` como ${nn(a["title"])}` : ""}`, null, null, { type: "person", id: a["person_id"] as string });
-      return { created: true, id: data.id };
+      const r = await apply(c, name, a, [{ ref: "a", table: "affiliations", op: "insert", values: { person_id: a["person_id"], organization_id: a["organization_id"], title: nn(a["title"]), source_type: "personal", source_detail: c.detail }, summary: `Vinculé a ${pe.full_name} con ${or.name}${nn(a["title"]) ? ` como ${nn(a["title"])}` : ""}`, link_type: "person", link_id: a["person_id"] as string }]);
+      return { created: true, id: r.refs["a"] };
     }
     case "add_person_link": {
-      if (!(await inWs(c, "people", a["to_person_id"]))) return { error: "persona destino no encontrada" };
-      let from = nn(a["from_person_id"]);
+      const { data: to } = await sb.from("people").select("full_name").eq("id", a["to_person_id"]).eq("workspace_id", c.ws).maybeSingle();
+      if (!to) return { error: "persona destino no encontrada" };
+      const steps: Step[] = [];
+      let from = nn(a["from_person_id"]); let fromName = "";
       if (!from) {
         const { data: m } = await sb.from("workspace_members").select("person_id, display_name, email").eq("workspace_id", c.ws).eq("user_id", c.uid).single();
         from = m?.person_id ?? null;
-        if (!from) {
-          const name = nn(m?.display_name) ?? nn(m?.email);
-          if (!name) return { error: "No tengo tu nombre para crear tu ficha; pedile al usuario que se asocie en Equipo." };
-          const { data: me, error } = await sb.from("people").insert({ workspace_id: c.ws, full_name: name, source_type: "personal", source_detail: "Ficha del miembro del equipo" }).select("id").single();
-          if (error) return { error: error.message };
-          const { error: e2 } = await sb.rpc("set_my_person", { _ws: c.ws, _person: me.id });
-          if (e2) return { error: e2.message };
-          await logAction(c, "people", me.id, "create", `Creé tu ficha (${name}) y la asocié a tu usuario`);
-          from = me.id as string;
+        if (from) {
+          const { data: me } = await sb.from("people").select("full_name, archived_at").eq("id", from).maybeSingle();
+          if (!me || me.archived_at) return { error: "Tu ficha está archivada. Preguntale al usuario si la restaura o elige otra." };
+          fromName = me.full_name;
+        } else {
+          const myId = nn(a["my_person_id"]);
+          if (myId) {
+            const { data: me } = await sb.from("people").select("full_name, archived_at").eq("id", myId).eq("workspace_id", c.ws).maybeSingle();
+            if (!me) return { error: "ficha elegida no encontrada" };
+            if (me.archived_at) return { error: "La ficha elegida está archivada; no la reutilizo sin que el usuario la restaure." };
+            steps.push({ op: "set_my_person", person_id: myId, summary: `Asocié tu usuario a la ficha ${me.full_name}` });
+            from = myId; fromName = me.full_name;
+          } else {
+            const nm = nn(m?.display_name) ?? nn(m?.email);
+            if (!nm) return { error: "No tengo tu nombre para crear tu ficha; pedile al usuario que se asocie en Equipo." };
+            if (!a["create_my_person"]) {
+              const { data: d } = await sb.rpc("find_person_duplicates", { _ws: c.ws, _name: nm });
+              if (d?.length) return { needs_confirmation: true, about: "ficha del usuario", candidates: d.map((x: { id: string; full_name: string; archived: boolean; reason: string }) => ({ id: x.id, full_name: x.full_name, archived: x.archived, reason: x.reason })), hint: "Preguntá si alguna es su ficha (my_person_id) o si creás una nueva (create_my_person=true)." };
+            }
+            steps.push({ ref: "me", table: "people", op: "insert", values: { full_name: nm, source_type: "personal", source_detail: "Ficha del miembro del equipo" }, summary: `Creé tu ficha (${nm})`, link_type: "person", link_ref: "me" });
+            steps.push({ op: "set_my_person", person_ref: "me", summary: "Asocié tu usuario a tu ficha" });
+            fromName = nm;
+          }
         }
-      } else if (!(await inWs(c, "people", from))) return { error: "persona origen no encontrada" };
-      if (from === a["to_person_id"]) return { error: "misma persona" };
-      const { data: ex } = await sb.from("person_links").select("id").eq("workspace_id", c.ws).is("archived_at", null).or(`and(from_person_id.eq.${from},to_person_id.eq.${a["to_person_id"]}),and(from_person_id.eq.${a["to_person_id"]},to_person_id.eq.${from})`).maybeSingle();
-      if (ex) return { exists: true, id: ex.id };
-      const { data, error } = await sb.from("person_links").insert({ workspace_id: c.ws, from_person_id: from, to_person_id: a["to_person_id"], kind: a["kind"], context: nn(a["context"]), source_type: "personal", source_detail: c.detail }).select("id, to:to_person_id(full_name), fr:from_person_id(full_name)").single();
-      if (error) return { error: error.message };
-      await logAction(c, "person_links", data.id, "create", `Vinculé en la red a ${data.fr?.full_name} con ${data.to?.full_name}`, null, null, { type: "person", id: a["to_person_id"] as string });
-      return { created: true, id: data.id };
+      } else {
+        const { data: fp } = await sb.from("people").select("full_name").eq("id", from).eq("workspace_id", c.ws).maybeSingle();
+        if (!fp) return { error: "persona origen no encontrada" };
+        fromName = fp.full_name;
+      }
+      if (from && from === a["to_person_id"]) return { error: "misma persona" };
+      if (from) {
+        const { data: ex } = await sb.from("person_links").select("id").eq("workspace_id", c.ws).is("archived_at", null).or(`and(from_person_id.eq.${from},to_person_id.eq.${a["to_person_id"]}),and(from_person_id.eq.${a["to_person_id"]},to_person_id.eq.${from})`).maybeSingle();
+        if (ex && !steps.length) return { exists: true, id: ex.id };
+      }
+      steps.push({ ref: "l", table: "person_links", op: "insert", values: { from_person_id: from ?? "$ref:me", to_person_id: a["to_person_id"], kind: a["kind"], context: nn(a["context"]), source_type: "personal", source_detail: c.detail }, summary: `Vinculé en la red a ${fromName} con ${to.full_name}`, link_type: "person", link_id: a["to_person_id"] as string });
+      const r = await apply(c, name, a, steps);
+      return { created: true, id: r.refs["l"] };
     }
     case "add_contact": {
       if (!(await inWs(c, "people", a["person_id"]))) return { error: "persona no encontrada" };
       const value = nn(a["value"]); if (!value) return { error: "valor vacío" };
-      const { data, error } = await sb.from("person_contacts").insert({ workspace_id: c.ws, person_id: a["person_id"], kind: a["kind"], value, source_detail: c.detail }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "person_contacts", data.id, "create", `Agregué el contacto ${value}`, null, null, { type: "person", id: a["person_id"] as string });
+      await apply(c, name, a, [{ table: "person_contacts", op: "insert", values: { person_id: a["person_id"], kind: a["kind"], value, source_detail: c.detail }, summary: `Agregué el contacto ${value}`, link_type: "person", link_id: a["person_id"] as string }]);
       return { created: true };
     }
     case "create_task": {
@@ -126,10 +152,9 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       if (a["due_date"] != null && !due) return { error: "fecha inválida; usá YYYY-MM-DD o preguntá" };
       for (const [t, k] of [["people", "person_id"], ["organizations", "organization_id"], ["projects", "project_id"]] as const) if (a[k] && !(await inWs(c, t, a[k]))) return { error: `${k} no encontrado` };
       if (a["owner_user_id"]) { const { data: m } = await sb.from("workspace_members").select("user_id").eq("workspace_id", c.ws).eq("user_id", a["owner_user_id"]).maybeSingle(); if (!m) return { error: "responsable no es miembro" }; }
-      const { data, error } = await sb.from("tasks").insert({ workspace_id: c.ws, title, context: nn(a["context"]), due_date: due, owner_user_id: a["owner_user_id"] || null, person_id: a["person_id"] || null, organization_id: a["organization_id"] || null, project_id: a["project_id"] || null }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "tasks", data.id, "create", `Agregué la tarea «${title}»${due ? ` para el ${due}` : ""}`, null, null, a["project_id"] ? { type: "project", id: a["project_id"] as string } : a["person_id"] ? { type: "person", id: a["person_id"] as string } : a["organization_id"] ? { type: "organization", id: a["organization_id"] as string } : { type: "task", id: data.id });
-      return { created: true, id: data.id };
+      const link = a["project_id"] ? { link_type: "project", link_id: a["project_id"] as string } : a["person_id"] ? { link_type: "person", link_id: a["person_id"] as string } : a["organization_id"] ? { link_type: "organization", link_id: a["organization_id"] as string } : { link_type: "task", link_ref: "t" };
+      const r = await apply(c, name, a, [{ ref: "t", table: "tasks", op: "insert", values: { title, context: nn(a["context"]), due_date: due, owner_user_id: a["owner_user_id"] || null, person_id: a["person_id"] || null, organization_id: a["organization_id"] || null, project_id: a["project_id"] || null }, summary: `Agregué la tarea «${title}»${due ? ` para el ${due}` : ""}`, ...link }]);
+      return { created: true, id: r.refs["t"] };
     }
     case "update_record": {
       const type = a["type"] as RecordType; const table = RECORD_TABLES[type]; if (!table) return { error: "tipo inválido" };
@@ -139,49 +164,43 @@ async function runTool(c: Ctx, name: string, a: Record<string, unknown>): Promis
       if (type === "project") ({ fields, dropped } = stripInventedNumbers(fields, c.userText));
       if (type === "task" && "due_date" in fields && fields["due_date"] != null && !validIsoDate(fields["due_date"])) return { error: "fecha inválida" };
       if (!Object.keys(fields).length) return { error: "sin campos válidos", dropped };
-      const { data: before } = await sb.from(table).select(Object.keys(fields).join(", ")).eq("id", a["id"]).eq("workspace_id", c.ws).maybeSingle();
-      if (!before) return { error: "no encontrado" };
-      const { error } = await sb.from(table).update(fields).eq("id", a["id"]);
-      if (error) return { error: error.message };
-      await logAction(c, table, a["id"] as string, "update", `Actualicé ${Object.keys(fields).join(", ")} de ${type === "person" ? "la persona" : type === "organization" ? "la organización" : type === "project" ? "el proyecto" : "la tarea"}`, before, fields);
+      if (!(await inWs(c, table, a["id"]))) return { error: "no encontrado" };
+      await apply(c, name, a, [{ table, op: "update", id: a["id"] as string, values: fields, summary: `Actualicé ${Object.keys(fields).join(", ")} de ${type === "person" ? "la persona" : type === "organization" ? "la organización" : type === "project" ? "el proyecto" : "la tarea"}`, link_type: LINK[table] ?? null, link_id: a["id"] as string }]);
       return { updated: true, dropped_numbers_not_in_text: dropped };
     }
     case "log_conversation": {
       const title = nn(a["title"]) ?? "Nota"; const body = String(a["body"] ?? "");
-      const { data, error } = await sb.from("conversations").insert({ workspace_id: c.ws, title, body, occurred_at: validIsoDate(a["occurred_at"]) ?? undefined }).select("id").single();
-      if (error) return { error: error.message };
-      const links: Record<string, unknown>[] = [];
-      for (const id of (a["person_ids"] as string[]) ?? []) if (await inWs(c, "people", id)) links.push({ workspace_id: c.ws, conversation_id: data.id, person_id: id });
-      for (const id of (a["organization_ids"] as string[]) ?? []) if (await inWs(c, "organizations", id)) links.push({ workspace_id: c.ws, conversation_id: data.id, organization_id: id });
-      for (const id of (a["project_ids"] as string[]) ?? []) if (await inWs(c, "projects", id)) links.push({ workspace_id: c.ws, conversation_id: data.id, project_id: id });
-      if (links.length) await sb.from("conversation_links").insert(links);
-      await logAction(c, "conversations", data.id, "create", `Guardé la conversación «${title}» (${links.length} vínculos)`, null, null, null as never);
-      return { created: true, id: data.id, links: links.length };
+      const steps: Step[] = [{ ref: "c", table: "conversations", op: "insert", values: { title, body, ...(validIsoDate(a["occurred_at"]) ? { occurred_at: validIsoDate(a["occurred_at"]) } : {}) }, summary: `Guardé la conversación «${title}»`, link_type: null }];
+      const missing: string[] = [];
+      for (const [key, t, col] of [["person_ids", "people", "person_id"], ["organization_ids", "organizations", "organization_id"], ["project_ids", "projects", "project_id"]] as const)
+        for (const id of (a[key] as string[]) ?? []) { if (await inWs(c, t, id)) steps.push({ table: "conversation_links", op: "insert", values: { conversation_id: "$ref:c", [col]: id }, summary: `Vinculé la conversación «${title}»`, link_type: t === "people" ? "person" : t === "organizations" ? "organization" : "project", link_id: id }); else missing.push(id); }
+      if (missing.length) return { error: `No encontré ${missing.length} de los registros a vincular; no guardé nada. Revisá los ids.` };
+      const r = await apply(c, name, a, steps);
+      return { created: true, id: r.refs["c"], links: steps.length - 1 };
     }
     case "add_need": {
       const d = nn(a["description"]); if (!d) return { error: "vacía" };
-      const { data, error } = await sb.from("needs").insert({ workspace_id: c.ws, description: d, evidence: nn(a["evidence"]), person_id: a["person_id"] || null, organization_id: a["organization_id"] || null }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "needs", data.id, "create", `Registré la necesidad: ${d}`, null, null, a["organization_id"] ? { type: "organization", id: a["organization_id"] as string } : a["person_id"] ? { type: "person", id: a["person_id"] as string } : undefined);
+      for (const [t, k] of [["people", "person_id"], ["organizations", "organization_id"]] as const) if (a[k] && !(await inWs(c, t, a[k]))) return { error: `${k} no encontrado` };
+      await apply(c, name, a, [{ table: "needs", op: "insert", values: { description: d, evidence: nn(a["evidence"]), person_id: a["person_id"] || null, organization_id: a["organization_id"] || null }, summary: `Registré la necesidad: ${d}`, ...(a["organization_id"] ? { link_type: "organization", link_id: a["organization_id"] as string } : a["person_id"] ? { link_type: "person", link_id: a["person_id"] as string } : {}) }]);
       return { created: true };
     }
     case "create_project": {
       const n = nn(a["name"]); if (!n) return { error: "falta el nombre" };
       const { fields: nums, dropped } = stripInventedNumbers({ power_mw: a["power_mw"], energy_mwh: a["energy_mwh"], duration_h: a["duration_h"] }, c.userText);
-      const { data, error } = await sb.from("projects").insert({ workspace_id: c.ws, name: n, need: nn(a["need"]), location: nn(a["location"]), evidence: nn(a["evidence"]), blockers: nn(a["blockers"]), next_milestone: nn(a["next_milestone"]), ...nums, source_type: "personal", source_detail: c.detail }).select("id").single();
-      if (error) return { error: error.message };
-      for (const o of (a["organization_ids"] as string[]) ?? []) if (await inWs(c, "organizations", o)) await sb.from("project_organizations").insert({ workspace_id: c.ws, project_id: data.id, organization_id: o });
-      await logAction(c, "projects", data.id, "create", `Creé el proyecto ${n}`);
-      return { created: true, id: data.id, dropped_numbers_not_in_text: dropped };
+      const steps: Step[] = [{ ref: "p", table: "projects", op: "insert", values: { name: n, need: nn(a["need"]), location: nn(a["location"]), evidence: nn(a["evidence"]), blockers: nn(a["blockers"]), next_milestone: nn(a["next_milestone"]), ...nums, source_type: "personal", source_detail: c.detail }, summary: `Creé el proyecto ${n}`, link_type: "project", link_ref: "p" }];
+      for (const o of (a["organization_ids"] as string[]) ?? []) {
+        if (!(await inWs(c, "organizations", o))) return { error: "organización no encontrada; no guardé nada" };
+        steps.push({ table: "project_organizations", op: "insert", values: { project_id: "$ref:p", organization_id: o }, summary: `Vinculé una organización al proyecto ${n}`, link_type: "project", link_ref: "p" });
+      }
+      const r = await apply(c, name, a, steps);
+      return { created: true, id: r.refs["p"], dropped_numbers_not_in_text: dropped };
     }
     case "add_participant": {
       if (!(await inWs(c, "projects", a["project_id"]))) return { error: "proyecto no encontrado" };
       if (!ROLE_VALUES.includes(a["role"] as never)) return { error: "rol inválido" };
       const pid = a["person_id"] || null; const oid = pid ? null : a["organization_id"] || null; const un = pid || oid ? null : nn(a["unidentified_description"]);
       if (!pid && !oid && !un) return { error: "indicá persona, organización o descripción" };
-      const { data, error } = await sb.from("project_participants").insert({ workspace_id: c.ws, project_id: a["project_id"], role: a["role"], person_id: pid, organization_id: oid, unidentified_description: un, notes: nn(a["notes"]), source_type: "personal", source_detail: c.detail }).select("id").single();
-      if (error) return { error: error.message };
-      await logAction(c, "project_participants", data.id, "create", `Agregué un participante (${a["role"]}) al proyecto`, null, null, { type: "project", id: a["project_id"] as string });
+      await apply(c, name, a, [{ table: "project_participants", op: "insert", values: { project_id: a["project_id"], role: a["role"], person_id: pid, organization_id: oid, unidentified_description: un, notes: nn(a["notes"]), source_type: "personal", source_detail: c.detail }, summary: `Agregué un participante (${a["role"]}) al proyecto`, link_type: "project", link_id: a["project_id"] as string }]);
       return { created: true };
     }
     case "get_context": {
@@ -241,8 +260,9 @@ type Item = Record<string, unknown>;
 
 export const sendBrainMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { workspace_id: string; thread_id?: string | null; text: string; focus?: { type: string; id: string } | null }) => {
+  .inputValidator((d: { workspace_id: string; thread_id?: string | null; text: string; focus?: { type: string; id: string } | null; request_id: string }) => {
     if (!d.text.trim()) throw new Error("Escribí algo");
+    if (!/^[A-Za-z0-9-]{8,64}$/.test(String(d.request_id ?? ""))) throw new Error("Falta el identificador del pedido");
     if (d.text.length > 60000) throw new Error("Mensaje demasiado largo (máx. 60.000 caracteres)");
     return d;
   })
@@ -250,16 +270,32 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
     const sb = context.supabase as Sb;
     const { data: member } = await sb.from("workspace_members").select("workspace_id, workspaces(name, is_demo)").eq("workspace_id", data.workspace_id).eq("user_id", context.userId).maybeSingle();
     if (!member) throw new Error("Sin acceso a este espacio");
+    // Request-level idempotency: a double submit or a lost response never repeats effects.
+    const { error: rqErr } = await sb.from("brain_requests").insert({ workspace_id: data.workspace_id, request_id: data.request_id, user_id: context.userId, thread_id: data.thread_id ?? null });
+    let retry = false;
+    if (rqErr) {
+      const { data: prev } = await sb.from("brain_requests").select("status, thread_id").eq("workspace_id", data.workspace_id).eq("request_id", data.request_id).maybeSingle();
+      if (!prev) throw new Error(rqErr.message);
+      if (prev.status === "done") return { thread_id: prev.thread_id as string, replayed: true };
+      if (prev.status === "running") throw new Error("Este mensaje ya se está procesando.");
+      retry = true; data.thread_id = prev.thread_id ?? data.thread_id;
+      await sb.from("brain_requests").update({ status: "running" }).eq("workspace_id", data.workspace_id).eq("request_id", data.request_id);
+    }
+    const markReq = (patch: Record<string, unknown>) => sb.from("brain_requests").update({ ...patch, updated_at: new Date().toISOString() }).eq("workspace_id", data.workspace_id).eq("request_id", data.request_id);
+    try {
     let thread = data.thread_id ?? null;
     if (!thread) {
       const { data: t, error } = await sb.from("brain_threads").insert({ workspace_id: data.workspace_id, owner_user_id: context.userId, title: data.text.trim().slice(0, 60), focus_type: data.focus?.type ?? null, focus_id: data.focus?.id ?? null }).select("id").single();
       if (error) throw new Error(error.message);
       thread = t.id as string;
+      await markReq({ thread_id: thread });
     }
     const { data: th } = await sb.from("brain_threads").select("*").eq("id", thread).maybeSingle();
     if (!th || th.workspace_id !== data.workspace_id) throw new Error("Chat no encontrado");
-    const { error: e1 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "user", content: data.text });
-    if (e1) throw new Error(e1.message);
+    if (!retry) {
+      const { error: e1 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "user", content: data.text });
+      if (e1) throw new Error(e1.message);
+    }
 
     const { data: hist } = await sb.from("brain_messages").select("role, content, parts").eq("thread_id", thread).order("created_at", { ascending: false }).limit(30);
     const history = [...(hist ?? [])].reverse();
@@ -276,7 +312,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
       role: m.role, content: m.role === "assistant" ? [m.content, m.parts?.actions?.length ? `[Acciones realizadas: ${m.parts.actions.map((x) => `${x.summary} (${x.table}:${x.record_id})`).join("; ")}]` : "", m.parts?.question ? `[Pregunté: ${m.parts.question.question}]` : ""].filter(Boolean).join("\n") : m.content,
     }));
 
-    const c: Ctx = { sb, ws: data.workspace_id, uid: context.userId, thread, userText, actions: [], question: null, research: [], detail: `Brain · chat ${thread.slice(0, 8)}` };
+    const c: Ctx = { sb, ws: data.workspace_id, uid: context.userId, thread, userText, actions: [], question: null, research: [], request: data.request_id, detail: `Brain · chat ${thread.slice(0, 8)}` };
     let text = ""; let failure: string | null = null;
     if (!process.env["LOVABLE_API_KEY"]) failure = "El Brain no está configurado.";
     else {
@@ -311,5 +347,7 @@ export const sendBrainMessage = createServerFn({ method: "POST" })
     const { error: e2 } = await sb.from("brain_messages").insert({ workspace_id: data.workspace_id, thread_id: thread, role: "assistant", content: text, parts });
     if (e2) throw new Error(e2.message);
     await sb.from("brain_threads").update({ updated_at: new Date().toISOString() }).eq("id", thread);
-    return { thread_id: thread };
+    await markReq({ status: "done", thread_id: thread });
+    return { thread_id: thread, replayed: false };
+    } catch (e) { await markReq({ status: "failed" }); throw e; }
   });

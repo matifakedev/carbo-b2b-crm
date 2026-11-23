@@ -233,8 +233,8 @@ function Batches({ ws }: { ws: string }) {
     if (!confirm("¿Revertir este lote? Se archivará solo lo que el lote creó y nadie modificó ni relacionó después.")) return;
     const { data: r, error } = await supabase.rpc("revert_import_batch", { _batch: id });
     if (error) { toast.error(error.message); return; }
-    const s = r as { people: number; orgs: number; kept: unknown[] };
-    toast.success(`Revertido: ${s.people} personas y ${s.orgs} organizaciones archivadas; ${s.kept.length} registros conservados.`);
+    const s = r as { people: number; orgs: number; kept: { type: string; name: string; reason: string }[] };
+    toast.success(`Revertido: ${s.people} personas y ${s.orgs} organizaciones archivadas; ${s.kept.length} registros conservados.`, { description: s.kept.slice(0, 12).map((k) => `${k.type} ${k.name}: ${k.reason}`).join(" · ") || undefined, duration: 15000 });
     await qc.invalidateQueries();
   }
   return (
