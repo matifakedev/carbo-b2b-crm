@@ -9,14 +9,15 @@ const nav = [
   { to: "/chat", label: "Brain" },
   { to: "/agenda", label: "Agenda" },
   { to: "/red", label: "Red" },
-  { to: "/proyectos", label: "Proyectos" },
-  { to: "/oportunidades", label: "Oportunidades" },
+  // Ocultos del menú por ahora (las pantallas siguen existiendo):
+  // { to: "/proyectos", label: "Proyectos" },
+  // { to: "/oportunidades", label: "Oportunidades" },
   { to: "/personas", label: "Personas" },
   { to: "/organizaciones", label: "Organizaciones" },
   { to: "/introducciones", label: "Introducciones" },
   { to: "/conversaciones", label: "Conversaciones" },
   { to: "/capacidades", label: "Capacidades Carbo" },
-  { to: "/importar-agenda", label: "Importar agenda" },
+  // { to: "/importar-agenda", label: "Importar agenda" }, // oculto del menú por ahora
   { to: "/equipo", label: "Equipo" },
 ] as const;
 
